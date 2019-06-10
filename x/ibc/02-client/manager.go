@@ -19,7 +19,7 @@ type Manager struct {
 
 func NewManager(protocol, free state.Base) Manager {
 	return Manager{
-		protocol: state.NewMapping(protocol, []byte("/client")),
+		protocol: state.NewMapping(protocol, []byte("/client/")),
 		idval:    state.NewValue(free, []byte("/client/id")),
 	}
 }

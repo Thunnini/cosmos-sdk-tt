@@ -103,20 +103,3 @@ func (obj CLIHandshakeObject) Timeout(ctx context.CLIContext, root merkle.Root) 
 	proof, err = obj.query(ctx, obj.TimeoutKey, &res)
 	return
 }
-
-/*
-func (obj CLIObject) State(ctx context.CLIContext, root merkle.Root) (res bool, proof merkle.Proof, err error) {
-	proof, err = obj.query(ctx, obj.StateKey, &res)
-	return
-}
-
-func (obj CLIObject) NextTimeout(ctx context.CLIContext, root merkle.Root) (res time.Time, proof merkle.Proof, err error) {
-	proof, err = obj.query(ctx, obj.NextTimeoutKey, &res)
-	return
-}
-
-func (obj CLIObject) Permission(ctx context.CLIContext, root merkle.Root) (res string, proof merkle.Proof, err error) {
-	proof, err = obj.query(ctx, obj.PermissionKey, &res)
-	return
-}
-*/

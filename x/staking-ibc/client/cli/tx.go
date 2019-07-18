@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/hex"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -18,8 +19,8 @@ import (
 // GetCmdDelegate implements the delegate command.
 func GetCmdDelegate(cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
-		Use:   "delegate [validator-addr] [amount]",
-		Args:  cobra.ExactArgs(2),
+		Use:   "delegate [validator-addr] [amount] [dstHex]",
+		Args:  cobra.ExactArgs(3),
 		Short: "delegate liquid tokens to a validator",
 		Long: strings.TrimSpace(`Delegate an amount of liquid coins to a validator from your wallet:
 
@@ -42,7 +43,12 @@ $ gaiacli tx staking delegate cosmosvaloper1l2rsakp388kuv9k8qzq6lrm9taddae7fpx59
 				return err
 			}
 
-			msg := stakingibc.NewMsgIBCDelegate(delAddr, valAddr, amount, []byte{0})
+			dst, err := hex.DecodeString(args[2])
+			if err != nil {
+				return err
+			}
+
+			msg := stakingibc.NewMsgIBCDelegate(delAddr, valAddr, amount, dst)
 			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg}, false)
 		},
 	}

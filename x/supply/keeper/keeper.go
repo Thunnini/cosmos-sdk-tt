@@ -67,7 +67,8 @@ func (k Keeper) GetSupply(ctx sdk.Context) (supply types.Supply) {
 	store := ctx.KVStore(k.storeKey)
 	b := store.Get(SupplyKey)
 	if b == nil {
-		panic("stored supply should not have been nil")
+		// panic("stored supply should not have been nil")
+		return types.Supply{}
 	}
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(b, &supply)
 	return

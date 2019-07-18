@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -19,6 +20,7 @@ import (
 	gaiaInit "github.com/cosmos/cosmos-sdk/cmd/gaia/init"
 	"github.com/cosmos/cosmos-sdk/server"
 	"github.com/cosmos/cosmos-sdk/store"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -30,18 +32,30 @@ var invCheckPeriod uint
 func main() {
 	cdc := app.MakeCodec()
 
-	config := sdk.GetConfig()
+	/*config := sdk.GetConfig()
 	config.SetBech32PrefixForAccount(sdk.Bech32PrefixAccAddr, sdk.Bech32PrefixAccPub)
 	config.SetBech32PrefixForValidator(sdk.Bech32PrefixValAddr, sdk.Bech32PrefixValPub)
 	config.SetBech32PrefixForConsensusNode(sdk.Bech32PrefixConsAddr, sdk.Bech32PrefixConsPub)
-	config.Seal()
+	config.Seal()*/
 
 	ctx := server.NewDefaultContext()
 	cobra.EnableCommandSorting = false
 	rootCmd := &cobra.Command{
-		Use:               "gaiad",
-		Short:             "Gaia Daemon (server)",
-		PersistentPreRunE: server.PersistentPreRunEFn(ctx),
+		Use:   "gaiad",
+		Short: "Gaia Daemon (server)",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			bech32 := viper.GetString("bech32")
+			if bech32 == "" {
+				panic(fmt.Errorf("should set bech32"))
+			}
+			config := sdk.GetConfig()
+			config.SetBech32PrefixForAccount(bech32, bech32+sdk.PrefixPublic)
+			config.SetBech32PrefixForValidator(bech32+sdk.PrefixValidator+sdk.PrefixOperator, bech32+sdk.PrefixValidator+sdk.PrefixOperator+sdk.PrefixPublic)
+			config.SetBech32PrefixForConsensusNode(bech32+sdk.PrefixValidator+sdk.PrefixConsensus, bech32+sdk.PrefixValidator+sdk.PrefixConsensus+sdk.PrefixPublic)
+			// config.Seal()
+
+			return server.PersistentPreRunEFn(ctx)(cmd, args)
+		},
 	}
 
 	rootCmd.AddCommand(gaiaInit.InitCmd(ctx, cdc))
@@ -58,6 +72,8 @@ func main() {
 	executor := cli.PrepareBaseCmd(rootCmd, "GA", app.DefaultNodeHome)
 	rootCmd.PersistentFlags().UintVar(&invCheckPeriod, flagInvCheckPeriod,
 		0, "Assert registered invariants every N blocks")
+	rootCmd.PersistentFlags().String("bech32", "", "Bech32 of chain")
+
 	err := executor.Execute()
 	if err != nil {
 		// handle with #870

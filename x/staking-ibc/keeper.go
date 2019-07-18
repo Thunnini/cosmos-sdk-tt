@@ -63,7 +63,7 @@ func (keeper StakingIBCKeeper) Delegate(ctx sdk.Context, from sdk.AccAddress, va
 
 	_, err = keeper.stakingKeeper.Delegate(ctx, keeper.supplyKeeper.GetModuleAddress(recipientModuleName), amount.Amount, validator, true)
 
-	bz, gerr = keeper.cdc.MarshalBinaryBare(PacketIBCDelegate{
+	bz, gerr = keeper.cdc.MarshalBinaryLengthPrefixed(PacketIBCDelegate{
 		From:       from,
 		Validator:  validatorAddr,
 		Amount:     amount,

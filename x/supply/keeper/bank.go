@@ -99,10 +99,10 @@ func (k Keeper) MintCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) sdk
 		panic(fmt.Sprintf("Account %s does not have permissions to mint tokens", moduleName))
 	}
 
-	/* _, err := k.bk.AddCoins(ctx, addr, amt)
+	_, _, err := k.bk.AddCoins(ctx, addr, amt)
 	if err != nil {
 		return err
-	}*/
+	}
 
 	// update total supply
 	supply := k.GetSupply(ctx)
@@ -130,10 +130,10 @@ func (k Keeper) BurnCoins(ctx sdk.Context, moduleName string, amt sdk.Coins) sdk
 		panic(fmt.Sprintf("Account %s does not have permissions to burn tokens", moduleName))
 	}
 
-	/* _, err := k.bk.SubtractCoins(ctx, addr, amt)
+	_, _, err := k.bk.SubtractCoins(ctx, addr, amt)
 	if err != nil {
 		return err
-	}*/
+	}
 
 	// update total supply
 	supply := k.GetSupply(ctx)

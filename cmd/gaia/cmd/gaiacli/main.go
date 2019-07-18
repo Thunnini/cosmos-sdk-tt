@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -43,11 +44,11 @@ import (
 	distcmd "github.com/cosmos/cosmos-sdk/x/distribution"
 	distClient "github.com/cosmos/cosmos-sdk/x/distribution/client"
 	govClient "github.com/cosmos/cosmos-sdk/x/gov/client"
+	ibcclient "github.com/cosmos/cosmos-sdk/x/ibc/mock/client"
 	mintclient "github.com/cosmos/cosmos-sdk/x/mint/client"
 	slashingclient "github.com/cosmos/cosmos-sdk/x/slashing/client"
 	stakingibcclient "github.com/cosmos/cosmos-sdk/x/staking-ibc/client"
 	stakingclient "github.com/cosmos/cosmos-sdk/x/staking/client"
-	ibcclient "github.com/cosmos/cosmos-sdk/x/ibc/mock/client"
 
 	_ "github.com/cosmos/cosmos-sdk/client/lcd/statik"
 )
@@ -60,11 +61,11 @@ func main() {
 	cdc := app.MakeCodec()
 
 	// Read in the configuration file for the sdk
-	config := sdk.GetConfig()
+	/*config := sdk.GetConfig()
 	config.SetBech32PrefixForAccount(sdk.Bech32PrefixAccAddr, sdk.Bech32PrefixAccPub)
 	config.SetBech32PrefixForValidator(sdk.Bech32PrefixValAddr, sdk.Bech32PrefixValPub)
 	config.SetBech32PrefixForConsensusNode(sdk.Bech32PrefixConsAddr, sdk.Bech32PrefixConsPub)
-	config.Seal()
+	config.Seal()*/
 
 	// TODO: setup keybase, viper object, etc. to be passed into
 	// the below functions and eliminate global vars, like we do
@@ -90,6 +91,7 @@ func main() {
 
 	// Add --chain-id to persistent flags and mark it required
 	rootCmd.PersistentFlags().String(client.FlagChainID, "", "Chain ID of tendermint node")
+	rootCmd.PersistentFlags().String("bech32", "", "Bech32 of chain")
 	rootCmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
 		return initConfig(rootCmd)
 	}
@@ -107,6 +109,20 @@ func main() {
 		client.LineBreak,
 		version.VersionCmd,
 		client.NewCompletionCmd(rootCmd, true),
+		&cobra.Command{
+			Use:  "bech32-to-hex [bech32]",
+			Args: cobra.ExactArgs(1),
+			RunE: func(cmd *cobra.Command, args []string) error {
+				acc, err := sdk.AccAddressFromBech32(args[0])
+				if err != nil {
+					return err
+				}
+
+				fmt.Println(hex.EncodeToString(acc.Bytes()))
+
+				return nil
+			},
+		},
 	)
 
 	// Add flags and prefix all env exposed with GA
@@ -207,6 +223,17 @@ func initConfig(cmd *cobra.Command) error {
 			return err
 		}
 	}
+
+	bech32 := viper.GetString("bech32")
+	if bech32 == "" {
+		panic(fmt.Errorf("should set bech32"))
+	}
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount(bech32, bech32+sdk.PrefixPublic)
+	config.SetBech32PrefixForValidator(bech32+sdk.PrefixValidator+sdk.PrefixOperator, bech32+sdk.PrefixValidator+sdk.PrefixOperator+sdk.PrefixPublic)
+	config.SetBech32PrefixForConsensusNode(bech32+sdk.PrefixValidator+sdk.PrefixConsensus, bech32+sdk.PrefixValidator+sdk.PrefixConsensus+sdk.PrefixPublic)
+	// config.Seal()
+
 	if err := viper.BindPFlag(client.FlagChainID, cmd.PersistentFlags().Lookup(client.FlagChainID)); err != nil {
 		return err
 	}

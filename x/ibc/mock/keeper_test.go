@@ -19,7 +19,7 @@ func TestPacket(t *testing.T) {
 	chain1 := input.chain1
 	chain2 := input.chain2
 
-	err := chain1.ik.SendPacket(chain1.ctx, chain2.ctx.ChainID(), MockPacket{
+	_, err := chain1.ik.SendPacket(chain1.ctx, chain2.ctx.ChainID(), MockPacket{
 		Data: []byte{0},
 	})
 	require.Nil(t, err)
@@ -98,9 +98,7 @@ func setupChain(chainId string) *testChain {
 	ms.MountStoreWithDB(tkeyParams, sdk.StoreTypeTransient, db)
 	ms.LoadLatestVersion()
 
-	ik := NewKeeper(cdc, ibcKey, "conn", func([]byte) error {
-		return nil
-	})
+	ik := NewKeeper(cdc, ibcKey, "conn")
 
 	ctx := sdk.NewContext(ms, abci.Header{ChainID: chainId}, false, log.NewNopLogger())
 

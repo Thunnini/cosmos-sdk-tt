@@ -14,10 +14,10 @@ import (
 )
 
 type Keeper struct {
-	cdc             *codec.Codec
-	key             sdk.StoreKey
-	connId          string
-	onPacketReceive func(sdk.Context, []byte) error
+	cdc              *codec.Codec
+	key              sdk.StoreKey
+	connId           string
+	onPacketReceives []func(sdk.Context, []byte) error
 
 	clientMan client.Manager
 
@@ -35,9 +35,10 @@ func NewKeeper(cdc *codec.Codec, key sdk.StoreKey, connId string) Keeper {
 	chMan := ibc_channel.NewManager(base, connMan)
 
 	return Keeper{
-		cdc:    cdc,
-		key:    key,
-		connId: connId,
+		cdc:              cdc,
+		key:              key,
+		connId:           connId,
+		onPacketReceives: make([]func(sdk.Context, []byte) error, 0),
 
 		clientMan: clientMan,
 
@@ -49,12 +50,8 @@ func NewKeeper(cdc *codec.Codec, key sdk.StoreKey, connId string) Keeper {
 	}
 }
 
-func (keeper *Keeper) SetOnReceivePacket(onPacketReceive func(sdk.Context, []byte) error) {
-	if keeper.onPacketReceive == nil {
-		keeper.onPacketReceive = onPacketReceive
-	} else {
-		panic("on packet receive already set")
-	}
+func (keeper *Keeper) AddOnReceivePacket(onPacketReceive func(sdk.Context, []byte) error) {
+	keeper.onPacketReceives = append(keeper.onPacketReceives, onPacketReceive)
 }
 
 func (keeper Keeper) SendPacket(ctx sdk.Context, counterChainId string, packet MockPacket) (sdk.Tags, sdk.Error) {
@@ -76,9 +73,11 @@ func (keeper Keeper) ReceivePacket(ctx sdk.Context, counterChainId string, packe
 		return sdk.ErrInternal(err.Error())
 	}
 
-	err = keeper.onPacketReceive(ctx, packet.Data)
-	if err != nil {
-		return sdk.ErrInternal(err.Error())
+	for _, onPacketReceive := range keeper.onPacketReceives {
+		err := onPacketReceive(ctx, packet.Data)
+		if err != nil {
+			return sdk.ErrInternal(err.Error())
+		}
 	}
 
 	return nil

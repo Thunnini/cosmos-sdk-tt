@@ -176,10 +176,10 @@ func NewGaiaApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 	app.stakingKeeper = *stakingKeeper.SetHooks(
 		NewStakingHooks(app.distrKeeper.Hooks(), app.slashingKeeper.Hooks()),
 	)
-	app.supplyKeeper = supply.NewKeeper(app.cdc, app.keySupply, app.accountKeeper, app.bankKeeper, supply.DefaultCodespace, []string{"staking-ibc"}, []string{"staking-mint"}, []string{})
+	app.supplyKeeper = supply.NewKeeper(app.cdc, app.keySupply, app.accountKeeper, app.bankKeeper, supply.DefaultCodespace, []string{"staking-ibc"}, []string{"staking-mint"}, []string{"staking-burn"})
 	app.ibcKeeper = mock.NewKeeper(app.cdc, app.keyIBC, "conn")
 	app.stakingMintKeeper = stakingmint.NewStakingMintKeeper(app.cdc, app.keyStakingMint, &app.ibcKeeper, app.stakingKeeper, app.supplyKeeper)
-	app.stakingIBCKeeper = stakingibc.NewStakingIBCKeeper(app.cdc, app.keyStakingIBC, app.ibcKeeper, app.stakingKeeper, app.supplyKeeper)
+	app.stakingIBCKeeper = stakingibc.NewStakingIBCKeeper(app.cdc, app.keyStakingIBC, &app.ibcKeeper, app.stakingKeeper, app.supplyKeeper)
 
 	// register the crisis routes
 	bank.RegisterInvariants(&app.crisisKeeper, app.accountKeeper)

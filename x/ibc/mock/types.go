@@ -25,6 +25,10 @@ const (
 	RouterKey = ModuleName
 )
 
+type Packet interface {
+	Type() string
+}
+
 type MockPacket struct {
 	Data []byte
 }

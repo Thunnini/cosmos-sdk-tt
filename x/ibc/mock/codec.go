@@ -15,6 +15,7 @@ func RegisterCodec(cdc *codec.Codec) {
 	cdc.RegisterInterface((*commitment.Root)(nil), nil)
 	cdc.RegisterInterface((*commitment.Proof)(nil), nil)
 	cdc.RegisterInterface((*ibc_channel.Packet)(nil), nil)
+	cdc.RegisterInterface((*Packet)(nil), nil)
 
 	cdc.RegisterConcrete(MsgCreateClient{}, "cosmos-sdk/MsgCreateClient", nil)
 	cdc.RegisterConcrete(MockConsensusState{}, "mockconsensusstate", nil)

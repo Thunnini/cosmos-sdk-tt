@@ -17,12 +17,12 @@ type StakingIBCKeeper struct {
 	supplyKeeper  supply.Keeper
 }
 
-func NewStakingIBCKeeper(cdc *codec.Codec, key sdk.StoreKey, ibcKeeper mock.Keeper, stakingKeeper staking.Keeper, supplyKeeper supply.Keeper) StakingIBCKeeper {
+func NewStakingIBCKeeper(cdc *codec.Codec, key sdk.StoreKey, ibcKeeper *mock.Keeper, stakingKeeper staking.Keeper, supplyKeeper supply.Keeper) StakingIBCKeeper {
 	return StakingIBCKeeper{
 		cdc:      cdc,
 		storeKey: key,
 
-		ibcKeeper:     ibcKeeper,
+		ibcKeeper:     *ibcKeeper,
 		stakingKeeper: stakingKeeper,
 		supplyKeeper:  supplyKeeper,
 	}
@@ -63,7 +63,7 @@ func (keeper StakingIBCKeeper) Delegate(ctx sdk.Context, from sdk.AccAddress, va
 
 	_, err = keeper.stakingKeeper.Delegate(ctx, keeper.supplyKeeper.GetModuleAddress(recipientModuleName), amount.Amount, validator, true)
 
-	bz, gerr = keeper.cdc.MarshalBinaryLengthPrefixed(PacketIBCDelegate{
+	bz, gerr = keeper.cdc.MarshalBinaryLengthPrefixed(PacketIBCDelegated{
 		From:       from,
 		Validator:  validatorAddr,
 		Amount:     amount,
@@ -98,12 +98,62 @@ func (keeper StakingIBCKeeper) Undelegate(ctx sdk.Context, recipient sdk.AccAddr
 	recipientModuleName := "staking-ibc"
 	moduleAddress := keeper.supplyKeeper.GetModuleAddress(recipientModuleName)
 
-	/*shares, err := keeper.stakingKeeper.ValidateUnbondAmount(
-		ctx, moduleAddress, validatorAddress, amount.Amount,
-	)*/
+	del, found := keeper.stakingKeeper.GetDelegation(ctx, moduleAddress, validatorAddress)
+	if !found {
+		return sdk.ErrInternal("Delegation doesn't exist")
+	}
 
-	// Due to lack of development time, delegate just can undelegate all right now.
-	_, err := keeper.stakingKeeper.Undelegate(ctx, moduleAddress, validatorAddress, sdk.NewDec(1))
+	// Due to lack of development time, delegate just can undelegate all shares right now.
+	_, err := keeper.stakingKeeper.Undelegate(ctx, moduleAddress, validatorAddress, del.Shares)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (keeper StakingIBCKeeper) OnReceivePacket(ctx sdk.Context, packet []byte) error {
+	store := ctx.KVStore(keeper.storeKey)
+
+	ibcDelegate := PacketIBCUndelegate
+	err := keeper.cdc.UnmarshalBinaryLengthPrefixed(packet, &ibcDelegate)
+	if err != nil {
+		return err
+	}
+
+	acc := sdk.AccAddress(ibcDelegate.DstAddress)
+	if store.Has(acc.Bytes()) {
+		// Due to the lack of development time, limit delegators to delegate only once at a time.
+		return sdk.ErrInternal("Can't mint delegatation twice with an account")
+	}
+
+	bz, err := keeper.cdc.MarshalBinaryBare(liquidDelegateInfo{
+		Delegator:   ibcDelegate.From,
+		Validator:   ibcDelegate.Validator,
+		DestAddress: ibcDelegate.DstAddress,
+		Amount:      ibcDelegate.Amount,
+	})
+	if err != nil {
+		return err
+	}
+	store.Set(acc.Bytes(), bz)
+
+	// bondDenom := keeper.stakingKeeper.BondDenom(ctx)
+
+	// TODO: separting for each chain id
+	recipientModuleName := "staking-mint"
+	ratio, err := sdk.NewDecFromStr("0.1")
+	if err != nil {
+		return err
+	}
+	amount := sdk.NewDecFromInt(ibcDelegate.Amount.Amount).Mul(ratio).RoundInt()
+	coins := sdk.NewCoins(sdk.NewCoin("buatom", amount))
+	err = keeper.supplyKeeper.MintCoins(ctx, recipientModuleName, coins)
+	if err != nil {
+		return err
+	}
+
+	err = keeper.supplyKeeper.SendCoinsFromModuleToAccount(ctx, recipientModuleName, acc, coins)
 	if err != nil {
 		return err
 	}

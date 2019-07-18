@@ -7,6 +7,9 @@ import (
 // Register concrete types on codec codec
 func RegisterCodec(cdc *codec.Codec) {
 	cdc.RegisterConcrete(MsgIBCDelegate{}, "cosmos-sdk/MsgIBCDelegate", nil)
+
+	cdc.RegisterConcrete(PacketIBCDelegated{}, "packet/delegate", nil)
+	cdc.RegisterConcrete(PacketIBCUndelegate{}, "packet/undelegate", nil)
 }
 
 // generic sealed codec to be used throughout this module

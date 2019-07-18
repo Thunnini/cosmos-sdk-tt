@@ -13,6 +13,7 @@ import (
 	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 )
 
+// TODO: add router
 type Keeper struct {
 	cdc              *codec.Codec
 	key              sdk.StoreKey

@@ -42,7 +42,7 @@ $ gaiacli tx staking delegate cosmosvaloper1l2rsakp388kuv9k8qzq6lrm9taddae7fpx59
 				return err
 			}
 
-			msg := stakingibc.NewMsgIBCDelegate(delAddr, valAddr, amount, []byte{})
+			msg := stakingibc.NewMsgIBCDelegate(delAddr, valAddr, amount, []byte{0})
 			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg}, false)
 		},
 	}

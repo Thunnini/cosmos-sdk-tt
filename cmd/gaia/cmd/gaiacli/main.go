@@ -47,6 +47,7 @@ import (
 	slashingclient "github.com/cosmos/cosmos-sdk/x/slashing/client"
 	stakingibcclient "github.com/cosmos/cosmos-sdk/x/staking-ibc/client"
 	stakingclient "github.com/cosmos/cosmos-sdk/x/staking/client"
+	ibcclient "github.com/cosmos/cosmos-sdk/x/ibc/mock/client"
 
 	_ "github.com/cosmos/cosmos-sdk/client/lcd/statik"
 )
@@ -79,6 +80,7 @@ func main() {
 		slashingclient.NewModuleClient(sl.StoreKey, cdc),
 		crisisclient.NewModuleClient(sl.StoreKey, cdc),
 		stakingibcclient.NewModuleClient(sti.StoreKey, cdc),
+		ibcclient.NewModuleClient("ibc", cdc),
 	}
 
 	rootCmd := &cobra.Command{

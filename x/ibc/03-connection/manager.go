@@ -7,8 +7,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/state"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/cosmos/cosmos-sdk/x/ibc/02-client"
-	"github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
+	client "github.com/cosmos/cosmos-sdk/x/ibc/02-client"
+	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 	"github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/merkle"
 )
 

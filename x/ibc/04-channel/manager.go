@@ -2,13 +2,14 @@ package channel
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/store/state"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/cosmos/cosmos-sdk/x/ibc/03-connection"
-	"github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
+	connection "github.com/cosmos/cosmos-sdk/x/ibc/03-connection"
+	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 )
 
 // Manager is unrestricted
@@ -80,15 +81,15 @@ func (man Manager) create(ctx sdk.Context, connid, chanid string, channel Channe
 		err = errors.New("channel already exists for the provided id")
 		return
 	}
-	obj.connection, err = man.connection.Query(ctx, connid)
+	// obj.connection, err = man.connection.Query(ctx, connid)
 	if err != nil {
 		return
 	}
 	obj.channel.Set(ctx, channel)
 
-	counterconnid := obj.connection.Connection(ctx).Counterparty
-	obj.counterparty = man.counterparty.object(counterconnid, channel.Counterparty)
-	obj.counterparty.connection = man.counterparty.connection.Object(counterconnid)
+	// counterconnid := obj.connection.Connection(ctx).Counterparty
+	// obj.counterparty = man.counterparty.object(counterconnid, channel.Counterparty)
+	// obj.counterparty.connection = man.counterparty.connection.Object(counterconnid)
 
 	return
 }
@@ -100,14 +101,14 @@ func (man Manager) query(ctx sdk.Context, connid, chanid string) (obj Object, er
 		err = errors.New("channel not exists for the provided id")
 		return
 	}
-	obj.connection, err = man.connection.Query(ctx, connid)
+	// obj.connection, err = man.connection.Query(ctx, connid)
 	if err != nil {
 		return
 	}
 
-	counterconnid := obj.connection.Connection(ctx).Counterparty
-	obj.counterparty = man.counterparty.object(counterconnid, obj.Channel(ctx).Counterparty)
-	obj.counterparty.connection = man.counterparty.connection.Object(counterconnid)
+	// counterconnid := obj.connection.Connection(ctx).Counterparty
+	// obj.counterparty = man.counterparty.object(counterconnid, obj.Channel(ctx).Counterparty)
+	// obj.counterparty.connection = man.counterparty.connection.Object(counterconnid)
 
 	return
 
@@ -181,9 +182,28 @@ type Object struct {
 
 	available state.Boolean
 
-	connection connection.Object
+	// connection connection.Object
 
 	counterparty CounterObject
+}
+
+func NewObject(cdc *codec.Codec, key sdk.StoreKey, chainId string, connId string, counterparty CounterObject) Object {
+	channelKey := []byte(fmt.Sprintf("connections/%s/channels/%s", connId, chainId))
+	base := state.NewBase(cdc, key, channelKey)
+	return Object{
+		chanid: chainId,
+		connid: connId,
+
+		channel: state.NewValue(base, []byte{}),
+
+		seqsend: state.NewInteger(state.NewValue(base, []byte("/nextSequenceSend")), state.Dec),
+		seqrecv: state.NewInteger(state.NewValue(base, []byte("/nextSequenceRecv")), state.Dec),
+		packets: state.NewIndexer(state.NewMapping(base, []byte("/packets/")), state.Dec),
+
+		available: state.NewBoolean(state.NewValue(base, []byte("/available"))),
+
+		counterparty: counterparty,
+	}
 }
 
 type CounterObject struct {
@@ -197,12 +217,29 @@ type CounterObject struct {
 
 	available commitment.Boolean
 
-	connection connection.CounterObject
+	// connection connection.CounterObject
 }
 
-func (obj Object) Context(ctx sdk.Context, proofs ...commitment.Proof) (sdk.Context, error) {
-	return obj.connection.Context(ctx, nil, proofs...)
+func NewCounterObject(cdc *codec.Codec, key sdk.StoreKey, chainId string, connId string) CounterObject {
+	// channelKey := []byte(fmt.Sprintf("connections/%s/channels/%s", connId, chainId))
+	base := commitment.NewBase(cdc)
+	return CounterObject{
+		chanid: chainId,
+		connid: connId,
+
+		channel: commitment.NewValue(base, []byte{}),
+
+		seqsend: commitment.NewInteger(commitment.NewValue(base, []byte("/nextSequenceSend")), state.Dec),
+		seqrecv: commitment.NewInteger(commitment.NewValue(base, []byte("/nextSequenceRecv")), state.Dec),
+		packets: commitment.NewIndexer(commitment.NewMapping(base, []byte("/packets/")), state.Dec),
+
+		available: commitment.NewBoolean(commitment.NewValue(base, []byte("/available"))),
+	}
 }
+
+/* func (obj Object) Context(ctx sdk.Context, proofs ...commitment.Proof) (sdk.Context, error) {
+	return obj.connection.Context(ctx, nil, proofs...)
+}*/
 
 func (obj Object) ChanID() string {
 	return obj.chanid
@@ -224,11 +261,13 @@ func (obj Object) Available(ctx sdk.Context) bool {
 
 func (obj Object) Sendable(ctx sdk.Context) bool {
 	// TODO: sendable/receivable should be also defined for channels
-	return obj.connection.Sendable(ctx)
+	// return obj.connection.Sendable(ctx)
+	return true
 }
 
 func (obj Object) Receivable(ctx sdk.Context) bool {
-	return obj.connection.Receivable(ctx)
+	// return obj.connection.Receivable(ctx)
+	return true
 }
 
 func (obj Object) SeqSend(ctx sdk.Context) uint64 {
@@ -252,9 +291,9 @@ func (obj Object) Send(ctx sdk.Context, packet Packet) error {
 		return errors.New("cannot send packets on this channel")
 	}
 
-	if obj.connection.Client().ConsensusState(ctx).GetHeight() >= packet.Timeout() {
+	/* if obj.connection.Client().ConsensusState(ctx).GetHeight() >= packet.Timeout() {
 		return errors.New("timeout height higher than the latest known")
-	}
+	}*/
 
 	obj.packets.SetRaw(ctx, obj.seqsend.Incr(ctx), packet.Commit())
 
@@ -266,20 +305,20 @@ func (obj Object) Receive(ctx sdk.Context, ppacket commitment.Proof, packet Pack
 		return errors.New("cannot receive packets on this channel")
 	}
 
-	ctx, err := obj.Context(ctx, ppacket)
+	/* ctx, err := obj.Context(ctx, ppacket)
 	if err != nil {
 		return err
-	}
+	}*/
 
-	err = assertTimeout(ctx, packet.Timeout())
+	err := assertTimeout(ctx, packet.Timeout())
 	if err != nil {
 		return err
 	}
 
 	// XXX: increment should happen before verification, reflect on the spec
-	if !obj.counterparty.packets.Value(obj.seqrecv.Incr(ctx)).IsRaw(ctx, packet.Commit()) {
+	/* if !obj.counterparty.packets.Value(obj.seqrecv.Incr(ctx)).IsRaw(ctx, packet.Commit()) {
 		return errors.New("verification failed")
-	}
+	}*/
 
 	return nil
 }

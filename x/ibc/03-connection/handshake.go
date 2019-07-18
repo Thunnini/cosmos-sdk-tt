@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/state"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
+	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 )
 
 type State = byte
@@ -174,10 +174,11 @@ func (man Handshaker) OpenTry(ctx sdk.Context,
 		return
 	}
 
-	if !obj.counterparty.state.Is(ctx, Init) {
+	// We can't know the counter party's state without censensus proof(?)
+	/* if !obj.counterparty.state.Is(ctx, Init) {
 		err = errors.New("counterparty state not init")
 		return
-	}
+	}*/
 
 	if !obj.counterparty.connection.Is(ctx, Connection{
 		Client:       counterpartyClient,

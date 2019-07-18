@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/state"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
+	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 )
 
 type State = byte
@@ -92,9 +92,9 @@ func (man Handshaker) create(ctx sdk.Context, connid, chanid string, channel Cha
 		return
 	}
 	obj = man.object(cobj)
-	counterconnid := obj.connection.Connection(ctx).Counterparty
-	obj.counterparty = man.counterparty.object(counterconnid, channel.Counterparty)
-	obj.counterparty.connection = man.counterparty.man.connection.Object(counterconnid)
+	// counterconnid := obj.connection.Connection(ctx).Counterparty
+	// obj.counterparty = man.counterparty.object(counterconnid, channel.Counterparty)
+	// obj.counterparty.connection = man.counterparty.man.connection.Object(counterconnid)
 
 	return obj, nil
 }
@@ -105,10 +105,10 @@ func (man Handshaker) query(ctx sdk.Context, connid, chanid string) (obj Handsha
 		return
 	}
 	obj = man.object(cobj)
-	channel := obj.Channel(ctx)
-	counterconnid := obj.connection.Connection(ctx).Counterparty
-	obj.counterparty = man.counterparty.object(counterconnid, channel.Counterparty)
-	obj.counterparty.connection = man.counterparty.man.connection.Object(counterconnid)
+	// channel := obj.Channel(ctx)
+	// counterconnid := obj.connection.Connection(ctx).Counterparty
+	// obj.counterparty = man.counterparty.object(counterconnid, channel.Counterparty)
+	// obj.counterparty.connection = man.counterparty.man.connection.Object(counterconnid)
 	return
 }
 
@@ -169,7 +169,7 @@ func (man Handshaker) OpenTry(ctx sdk.Context,
 		return
 	}
 
-	ctx, err = obj.Context(ctx, pchannel, pstate, ptimeout)
+	// ctx, err = obj.Context(ctx, pchannel, pstate, ptimeout)
 	if err != nil {
 		return
 	}
@@ -179,10 +179,11 @@ func (man Handshaker) OpenTry(ctx sdk.Context,
 		return
 	}
 
-	if !obj.counterparty.state.Is(ctx, Init) {
+	// We can't know the counter party's state without censensus proof(?)
+	/* if !obj.counterparty.state.Is(ctx, Init) {
 		err = errors.New("counterparty state not init")
 		return
-	}
+	}*/
 
 	if !obj.counterparty.channel.Is(ctx, Channel{
 		Port:             channel.CounterpartyPort,
@@ -230,7 +231,7 @@ func (man Handshaker) OpenAck(ctx sdk.Context,
 		return
 	}
 
-	ctx, err = obj.Context(ctx, pchannel, pstate, ptimeout)
+	// ctx, err = obj.Context(ctx, pchannel, pstate, ptimeout)
 	if err != nil {
 		return
 	}
@@ -289,7 +290,7 @@ func (man Handshaker) OpenConfirm(ctx sdk.Context,
 		return
 	}
 
-	ctx, err = obj.Context(ctx, pstate, ptimeout)
+	// ctx, err = obj.Context(ctx, pstate, ptimeout)
 	if err != nil {
 		return
 	}

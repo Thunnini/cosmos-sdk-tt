@@ -8,6 +8,23 @@ import (
 	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 )
 
+const (
+	// ModuleName is the name of the staking module
+	ModuleName = "ibcmock"
+
+	// StoreKey is the string store representation
+	StoreKey = ModuleName
+
+	// TStoreKey is the string transient store representation
+	TStoreKey = "transient_" + ModuleName
+
+	// QuerierRoute is the querier route for the staking module
+	QuerierRoute = ModuleName
+
+	// RouterKey is the msg router key for the staking module
+	RouterKey = ModuleName
+)
+
 type MockPacket struct {
 	Data []byte
 }

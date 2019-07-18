@@ -23,6 +23,8 @@ func RegisterCodec(cdc *codec.Codec) {
 	cdc.RegisterConcrete(MockProof{}, "mockproof", nil)
 	cdc.RegisterConcrete(merkle.Path{}, "merklepath", nil)
 	cdc.RegisterConcrete(MockPacket{}, "mockpacket", nil)
+
+	cdc.RegisterConcrete(MsgRelay{}, "cosmos-sdk/MsgRelay", nil)
 }
 
 // generic sealed codec to be used throughout module

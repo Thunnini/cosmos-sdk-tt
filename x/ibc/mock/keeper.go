@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"encoding/base64"
 	"math"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -16,7 +17,7 @@ type Keeper struct {
 	cdc             *codec.Codec
 	key             sdk.StoreKey
 	connId          string
-	onPacketReceive func([]byte) error
+	onPacketReceive func(sdk.Context, []byte) error
 
 	clientMan client.Manager
 
@@ -27,17 +28,16 @@ type Keeper struct {
 	chHandshaker ibc_channel.Handshaker
 }
 
-func NewKeeper(cdc *codec.Codec, key sdk.StoreKey, connId string, onPacketReceive func([]byte) error) Keeper {
+func NewKeeper(cdc *codec.Codec, key sdk.StoreKey, connId string) Keeper {
 	base := state.NewBase(cdc, key, []byte{})
 	clientMan := client.NewManager(base, base)
 	connMan := ibc_connection.NewManager(base, client.NewManager(base, base))
 	chMan := ibc_channel.NewManager(base, connMan)
 
 	return Keeper{
-		cdc:             cdc,
-		key:             key,
-		connId:          connId,
-		onPacketReceive: onPacketReceive,
+		cdc:    cdc,
+		key:    key,
+		connId: connId,
 
 		clientMan: clientMan,
 
@@ -49,6 +49,14 @@ func NewKeeper(cdc *codec.Codec, key sdk.StoreKey, connId string, onPacketReceiv
 	}
 }
 
+func (keeper *Keeper) SetOnReceivePacket(onPacketReceive func(sdk.Context, []byte) error) {
+	if keeper.onPacketReceive == nil {
+		keeper.onPacketReceive = onPacketReceive
+	} else {
+		panic("on packet receive already set")
+	}
+}
+
 func (keeper Keeper) SendPacket(ctx sdk.Context, counterChainId string, packet MockPacket) (sdk.Tags, sdk.Error) {
 	cobj := ibc_channel.NewCounterObject(keeper.cdc, keeper.key, counterChainId, keeper.connId)
 	obj := ibc_channel.NewObject(keeper.cdc, keeper.key, ctx.ChainID(), keeper.connId, cobj)
@@ -57,12 +65,7 @@ func (keeper Keeper) SendPacket(ctx sdk.Context, counterChainId string, packet M
 		return sdk.Tags{}, sdk.ErrInternal(err.Error())
 	}
 
-	bz, err := keeper.cdc.MarshalJSON(packet.Data)
-	if err != nil {
-		return sdk.Tags{}, sdk.ErrInternal(err.Error())
-	}
-
-	return sdk.NewTags("ibc-send", string(bz)), nil
+	return sdk.NewTags("type", "ibc-send", "data", base64.StdEncoding.EncodeToString(packet.Data)), nil
 }
 
 func (keeper Keeper) ReceivePacket(ctx sdk.Context, counterChainId string, packet MockPacket) sdk.Error {
@@ -73,7 +76,7 @@ func (keeper Keeper) ReceivePacket(ctx sdk.Context, counterChainId string, packe
 		return sdk.ErrInternal(err.Error())
 	}
 
-	err = keeper.onPacketReceive(packet.Data)
+	err = keeper.onPacketReceive(ctx, packet.Data)
 	if err != nil {
 		return sdk.ErrInternal(err.Error())
 	}

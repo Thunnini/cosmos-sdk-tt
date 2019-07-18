@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 var (
 	logger = log.NewTMLogger(log.NewSyncWriter(os.Stdout))
 )
@@ -22,7 +21,7 @@ func GetCmdRelayer(cdc *codec.Codec) *cobra.Command {
 		Use:  "watch [node]",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rs := NewRelayerService(cdc)
+			rs := NewRelayerService(cdc, args[0])
 			rs.SetLogger(logger.With("module", "relayer"))
 
 			// Stop upon receiving SIGTERM or CTRL-C.

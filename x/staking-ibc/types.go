@@ -36,7 +36,7 @@ func (PacketIBCDelegated) Type() string {
 }
 
 type PacketIBCUndelegate struct {
-	From      sdk.AccAddress `json:"from"`
+	Delegator sdk.AccAddress `json:"delegator"`
 	Validator sdk.ValAddress `json:"validator"`
 	Amount    sdk.Coin       `json:"amount"`
 }

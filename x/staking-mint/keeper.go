@@ -69,7 +69,7 @@ func (keeper StakingMintKeeper) OnReceivePacket(ctx sdk.Context, packet []byte) 
 
 	// TODO: separting for each chain id
 	recipientModuleName := "staking-mint"
-	ratio, err := sdk.NewDecFromStr("0.1")
+	ratio, err := sdk.NewDecFromStr("0.9")
 	if err != nil {
 		return err
 	}
@@ -88,37 +88,51 @@ func (keeper StakingMintKeeper) OnReceivePacket(ctx sdk.Context, packet []byte) 
 	return nil
 }
 
-func (keeper StakingMintKeeper) UndelegateLiquid(ctx sdk.Context, sender sdk.AccAddress) sdk.Error {
+func (keeper StakingMintKeeper) UndelegateLiquid(ctx sdk.Context, sender sdk.AccAddress) (sdk.Tags, sdk.Error) {
 	store := ctx.KVStore(keeper.storeKey)
 
 	if !store.Has(sender.Bytes()) {
-		return sdk.ErrInternal("Account doesn't have liquid delegation info")
+		return sdk.Tags{}, sdk.ErrInternal("Account doesn't have liquid delegation info")
 	}
 
 	info := liquidDelegateInfo{}
 	err := keeper.cdc.UnmarshalBinaryBare(store.Get(sender.Bytes()), &info)
 	if err != nil {
-		return sdk.ErrInternal(err.Error())
+		return sdk.Tags{}, sdk.ErrInternal(err.Error())
 	}
 
-	ratio, err := sdk.NewDecFromStr("0.1")
+	ratio, err := sdk.NewDecFromStr("0.9")
 	if err != nil {
-		return sdk.ErrInternal(err.Error())
+		return sdk.Tags{}, sdk.ErrInternal(err.Error())
 	}
 	amount := sdk.NewDecFromInt(info.Amount.Amount).Mul(ratio).RoundInt()
 
 	sdkErr := keeper.supplyKeeper.SendCoinsFromAccountToModule(ctx, sender, "staking-burn", sdk.NewCoins(sdk.NewCoin("uatom", amount)))
 	if sdkErr != nil {
-		return sdkErr
+		return sdk.Tags{}, sdkErr
 	}
 	sdkErr = keeper.supplyKeeper.BurnCoins(ctx, "staking-burn", sdk.NewCoins(sdk.NewCoin("uatom", amount)))
 	if sdkErr != nil {
-		return sdkErr
+		return sdk.Tags{}, sdkErr
 	}
 
-	// keeper.ibcKeeper.SendPacket(ctx, )
+	bz, err := keeper.cdc.MarshalBinaryLengthPrefixed(stakingibc.PacketIBCUndelegate{
+		Delegator: info.Delegator,
+		Validator: info.Validator,
+		Amount:    info.Amount,
+	})
+	if err != nil {
+		return sdk.Tags{}, sdk.ErrInternal(err.Error())
+	}
+
+	tags, sdkErr := keeper.ibcKeeper.SendPacket(ctx, "TODO", mock.MockPacket{
+		Data: bz,
+	})
+	if sdkErr != nil {
+		return sdk.Tags{}, sdkErr
+	}
 
 	store.Delete(sender.Bytes())
 
-	return nil
+	return tags, nil
 }

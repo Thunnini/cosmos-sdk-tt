@@ -18,7 +18,7 @@ type StakingIBCKeeper struct {
 }
 
 func NewStakingIBCKeeper(cdc *codec.Codec, key sdk.StoreKey, ibcKeeper *mock.Keeper, stakingKeeper staking.Keeper, supplyKeeper supply.Keeper) StakingIBCKeeper {
-	return StakingIBCKeeper{
+	keeper := StakingIBCKeeper{
 		cdc:      cdc,
 		storeKey: key,
 
@@ -26,6 +26,9 @@ func NewStakingIBCKeeper(cdc *codec.Codec, key sdk.StoreKey, ibcKeeper *mock.Kee
 		stakingKeeper: stakingKeeper,
 		supplyKeeper:  supplyKeeper,
 	}
+	ibcKeeper.AddOnReceivePacket(keeper.OnReceivePacket)
+
+	return keeper
 }
 
 func (keeper StakingIBCKeeper) Delegate(ctx sdk.Context, from sdk.AccAddress, validatorAddr sdk.ValAddress, amount sdk.Coin, destAddr []byte) (sdk.Tags, sdk.Error) {
@@ -115,48 +118,25 @@ func (keeper StakingIBCKeeper) Undelegate(ctx sdk.Context, recipient sdk.AccAddr
 func (keeper StakingIBCKeeper) OnReceivePacket(ctx sdk.Context, packet []byte) error {
 	store := ctx.KVStore(keeper.storeKey)
 
-	ibcDelegate := PacketIBCUndelegate
-	err := keeper.cdc.UnmarshalBinaryLengthPrefixed(packet, &ibcDelegate)
+	var iPacket mock.Packet
+	err := keeper.cdc.UnmarshalBinaryLengthPrefixed(packet, &iPacket)
 	if err != nil {
 		return err
 	}
 
-	acc := sdk.AccAddress(ibcDelegate.DstAddress)
+	ibcUndelegate := PacketIBCUndelegate{}
+	switch iPacket := iPacket.(type) {
+	case PacketIBCUndelegate:
+		ibcUndelegate = iPacket
+	default:
+		return nil
+	}
+
+	acc := sdk.AccAddress(ibcUndelegate.Delegator)
 	if store.Has(acc.Bytes()) {
 		// Due to the lack of development time, limit delegators to delegate only once at a time.
 		return sdk.ErrInternal("Can't mint delegatation twice with an account")
 	}
 
-	bz, err := keeper.cdc.MarshalBinaryBare(liquidDelegateInfo{
-		Delegator:   ibcDelegate.From,
-		Validator:   ibcDelegate.Validator,
-		DestAddress: ibcDelegate.DstAddress,
-		Amount:      ibcDelegate.Amount,
-	})
-	if err != nil {
-		return err
-	}
-	store.Set(acc.Bytes(), bz)
-
-	// bondDenom := keeper.stakingKeeper.BondDenom(ctx)
-
-	// TODO: separting for each chain id
-	recipientModuleName := "staking-mint"
-	ratio, err := sdk.NewDecFromStr("0.1")
-	if err != nil {
-		return err
-	}
-	amount := sdk.NewDecFromInt(ibcDelegate.Amount.Amount).Mul(ratio).RoundInt()
-	coins := sdk.NewCoins(sdk.NewCoin("buatom", amount))
-	err = keeper.supplyKeeper.MintCoins(ctx, recipientModuleName, coins)
-	if err != nil {
-		return err
-	}
-
-	err = keeper.supplyKeeper.SendCoinsFromModuleToAccount(ctx, recipientModuleName, acc, coins)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return keeper.Undelegate(ctx, ibcUndelegate.Delegator, ibcUndelegate.Validator)
 }

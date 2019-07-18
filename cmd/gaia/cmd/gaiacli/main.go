@@ -34,6 +34,7 @@ import (
 	sl "github.com/cosmos/cosmos-sdk/x/slashing"
 	slashing "github.com/cosmos/cosmos-sdk/x/slashing/client/rest"
 	st "github.com/cosmos/cosmos-sdk/x/staking"
+	sti "github.com/cosmos/cosmos-sdk/x/staking-ibc"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/client/rest"
 
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
@@ -44,6 +45,7 @@ import (
 	govClient "github.com/cosmos/cosmos-sdk/x/gov/client"
 	mintclient "github.com/cosmos/cosmos-sdk/x/mint/client"
 	slashingclient "github.com/cosmos/cosmos-sdk/x/slashing/client"
+	stakingibcclient "github.com/cosmos/cosmos-sdk/x/staking-ibc/client"
 	stakingclient "github.com/cosmos/cosmos-sdk/x/staking/client"
 
 	_ "github.com/cosmos/cosmos-sdk/client/lcd/statik"
@@ -76,6 +78,7 @@ func main() {
 		mintclient.NewModuleClient(mint.StoreKey, cdc),
 		slashingclient.NewModuleClient(sl.StoreKey, cdc),
 		crisisclient.NewModuleClient(sl.StoreKey, cdc),
+		stakingibcclient.NewModuleClient(sti.StoreKey, cdc),
 	}
 
 	rootCmd := &cobra.Command{

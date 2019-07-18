@@ -469,7 +469,7 @@ func (k Keeper) Delegate(ctx sdk.Context, delAddr sdk.AccAddress, bondAmt sdk.In
 	}
 
 	if subtractAccount {
-		_, err := k.bankKeeper.DelegateCoins(ctx, delegation.DelegatorAddress, sdk.Coins{sdk.NewCoin(k.GetParams(ctx).BondDenom, bondAmt)})
+		_, err := k.bankKeeper.DelegateCoins(ctx, delegation.DelegatorAddress, sdk.AccAddress{}, sdk.Coins{sdk.NewCoin(k.GetParams(ctx).BondDenom, bondAmt)})
 		if err != nil {
 			return sdk.Dec{}, err
 		}
@@ -619,7 +619,7 @@ func (k Keeper) CompleteUnbonding(ctx sdk.Context, delAddr sdk.AccAddress,
 
 			// track undelegation only when remaining or truncated shares are non-zero
 			if !entry.Balance.IsZero() {
-				_, err := k.bankKeeper.UndelegateCoins(ctx, ubd.DelegatorAddress, sdk.Coins{sdk.NewCoin(k.GetParams(ctx).BondDenom, entry.Balance)})
+				_, err := k.bankKeeper.UndelegateCoins(ctx, ubd.DelegatorAddress, sdk.AccAddress{}, sdk.Coins{sdk.NewCoin(k.GetParams(ctx).BondDenom, entry.Balance)})
 				if err != nil {
 					return err
 				}

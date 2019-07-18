@@ -58,6 +58,11 @@ func TokensFromTendermintPower(power int64) Int {
 	return NewInt(power).Mul(PowerReduction)
 }
 
+// TokensFromConsensusPower - convert input power to tokens
+func TokensFromConsensusPower(power int64) Int {
+	return NewInt(power).Mul(PowerReduction)
+}
+
 // nolint
 func (b BondStatus) Equal(b2 BondStatus) bool {
 	return byte(b) == byte(b2)

@@ -21,8 +21,8 @@ type Keeper interface {
 	AddCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error)
 	InputOutputCoins(ctx sdk.Context, inputs []Input, outputs []Output) (sdk.Tags, sdk.Error)
 
-	DelegateCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) (sdk.Tags, sdk.Error)
-	UndelegateCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) (sdk.Tags, sdk.Error)
+	DelegateCoins(ctx sdk.Context, addr sdk.AccAddress, _ sdk.AccAddress, amt sdk.Coins) (sdk.Tags, sdk.Error)
+	UndelegateCoins(ctx sdk.Context, addr sdk.AccAddress, _ sdk.AccAddress, amt sdk.Coins) (sdk.Tags, sdk.Error)
 }
 
 // BaseKeeper manages transfers between accounts. It implements the Keeper interface.
@@ -91,7 +91,7 @@ func (keeper BaseKeeper) InputOutputCoins(
 // address addr. For vesting accounts, delegations amounts are tracked for both
 // vesting and vested coins.
 func (keeper BaseKeeper) DelegateCoins(
-	ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins,
+	ctx sdk.Context, addr sdk.AccAddress, _ sdk.AccAddress, amt sdk.Coins,
 ) (sdk.Tags, sdk.Error) {
 
 	if !amt.IsValid() {
@@ -105,7 +105,7 @@ func (keeper BaseKeeper) DelegateCoins(
 // vesting and vested coins.
 // If any of the undelegation amounts are negative, an error is returned.
 func (keeper BaseKeeper) UndelegateCoins(
-	ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins,
+	ctx sdk.Context, addr sdk.AccAddress, _ sdk.AccAddress, amt sdk.Coins,
 ) (sdk.Tags, sdk.Error) {
 
 	if !amt.IsValid() {

@@ -3,6 +3,7 @@ package stakingibc
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/distribution"
 	"github.com/cosmos/cosmos-sdk/x/ibc/mock"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/cosmos/cosmos-sdk/x/supply"
@@ -15,9 +16,10 @@ type StakingIBCKeeper struct {
 	ibcKeeper     mock.Keeper
 	stakingKeeper staking.Keeper
 	supplyKeeper  supply.Keeper
+	distrKeeper   distribution.Keeper
 }
 
-func NewStakingIBCKeeper(cdc *codec.Codec, key sdk.StoreKey, ibcKeeper *mock.Keeper, stakingKeeper staking.Keeper, supplyKeeper supply.Keeper) StakingIBCKeeper {
+func NewStakingIBCKeeper(cdc *codec.Codec, key sdk.StoreKey, ibcKeeper *mock.Keeper, stakingKeeper staking.Keeper, supplyKeeper supply.Keeper, distrKeeper distribution.Keeper) StakingIBCKeeper {
 	keeper := StakingIBCKeeper{
 		cdc:      cdc,
 		storeKey: key,
@@ -25,6 +27,7 @@ func NewStakingIBCKeeper(cdc *codec.Codec, key sdk.StoreKey, ibcKeeper *mock.Kee
 		ibcKeeper:     *ibcKeeper,
 		stakingKeeper: stakingKeeper,
 		supplyKeeper:  supplyKeeper,
+		distrKeeper:   distrKeeper,
 	}
 	ibcKeeper.AddOnReceivePacket(keeper.OnReceivePacket)
 
@@ -101,13 +104,26 @@ func (keeper StakingIBCKeeper) Undelegate(ctx sdk.Context, recipient sdk.AccAddr
 	recipientModuleName := "staking-ibc"
 	moduleAddress := keeper.supplyKeeper.GetModuleAddress(recipientModuleName)
 
+	// Get rewards and send to recipient
+	rewards, err := keeper.distrKeeper.WithdrawDelegationRewards(ctx, moduleAddress, validatorAddress)
+	if err != nil {
+		return err
+	}
+	err = keeper.supplyKeeper.SendCoinsFromModuleToAccount(ctx, recipientModuleName, recipient, rewards)
+	if err != nil {
+		return err
+	}
+
+	// TODO: When unbonding ends, send the coins to recipient
+
 	del, found := keeper.stakingKeeper.GetDelegation(ctx, moduleAddress, validatorAddress)
 	if !found {
 		return sdk.ErrInternal("Delegation doesn't exist")
 	}
+	ctx.Logger().Info(del.String())
 
 	// Due to lack of development time, delegate just can undelegate all shares right now.
-	_, err := keeper.stakingKeeper.Undelegate(ctx, moduleAddress, validatorAddress, del.Shares)
+	_, err = keeper.stakingKeeper.Undelegate(ctx, moduleAddress, validatorAddress, del.Shares)
 	if err != nil {
 		return err
 	}
@@ -116,8 +132,6 @@ func (keeper StakingIBCKeeper) Undelegate(ctx sdk.Context, recipient sdk.AccAddr
 }
 
 func (keeper StakingIBCKeeper) OnReceivePacket(ctx sdk.Context, packet []byte) error {
-	store := ctx.KVStore(keeper.storeKey)
-
 	var iPacket mock.Packet
 	err := keeper.cdc.UnmarshalBinaryLengthPrefixed(packet, &iPacket)
 	if err != nil {
@@ -130,12 +144,6 @@ func (keeper StakingIBCKeeper) OnReceivePacket(ctx sdk.Context, packet []byte) e
 		ibcUndelegate = iPacket
 	default:
 		return nil
-	}
-
-	acc := sdk.AccAddress(ibcUndelegate.Delegator)
-	if store.Has(acc.Bytes()) {
-		// Due to the lack of development time, limit delegators to delegate only once at a time.
-		return sdk.ErrInternal("Can't mint delegatation twice with an account")
 	}
 
 	return keeper.Undelegate(ctx, ibcUndelegate.Delegator, ibcUndelegate.Validator)

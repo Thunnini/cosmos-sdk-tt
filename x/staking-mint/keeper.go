@@ -107,11 +107,11 @@ func (keeper StakingMintKeeper) UndelegateLiquid(ctx sdk.Context, sender sdk.Acc
 	}
 	amount := sdk.NewDecFromInt(info.Amount.Amount).Mul(ratio).RoundInt()
 
-	sdkErr := keeper.supplyKeeper.SendCoinsFromAccountToModule(ctx, sender, "staking-burn", sdk.NewCoins(sdk.NewCoin("uatom", amount)))
+	sdkErr := keeper.supplyKeeper.SendCoinsFromAccountToModule(ctx, sender, "staking-burn", sdk.NewCoins(sdk.NewCoin("buatom", amount)))
 	if sdkErr != nil {
 		return sdk.Tags{}, sdkErr
 	}
-	sdkErr = keeper.supplyKeeper.BurnCoins(ctx, "staking-burn", sdk.NewCoins(sdk.NewCoin("uatom", amount)))
+	sdkErr = keeper.supplyKeeper.BurnCoins(ctx, "staking-burn", sdk.NewCoins(sdk.NewCoin("buatom", amount)))
 	if sdkErr != nil {
 		return sdk.Tags{}, sdkErr
 	}

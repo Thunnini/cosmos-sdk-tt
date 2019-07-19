@@ -195,7 +195,8 @@ func NewGaiaApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 		AddRoute(gov.RouterKey, gov.NewHandler(app.govKeeper)).
 		AddRoute(crisis.RouterKey, crisis.NewHandler(app.crisisKeeper)).
 		AddRoute(stakingibc.RouterKey, stakingibc.NewHandler(app.stakingIBCKeeper)).
-		AddRoute(mock.RouterKey, mock.NewHandler(app.ibcKeeper))
+		AddRoute(mock.RouterKey, mock.NewHandler(app.ibcKeeper)).
+		AddRoute(stakingmint.RouterKey, stakingmint.NewHandler(app.stakingMintKeeper))
 
 	app.QueryRouter().
 		AddRoute(auth.QuerierRoute, auth.NewQuerier(app.accountKeeper)).
@@ -240,6 +241,7 @@ func MakeCodec() *codec.Codec {
 	mock.RegisterCodec(cdc)
 	supply.RegisterCodec(cdc)
 	stakingibc.RegisterCodec(cdc)
+	stakingmint.RegisterCodec(cdc)
 
 	return cdc
 }

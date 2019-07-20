@@ -37,6 +37,8 @@ import (
 	st "github.com/cosmos/cosmos-sdk/x/staking"
 	sti "github.com/cosmos/cosmos-sdk/x/staking-ibc"
 	smi "github.com/cosmos/cosmos-sdk/x/staking-mint"
+	swap "github.com/cosmos/cosmos-sdk/x/uniswap"
+
 	staking "github.com/cosmos/cosmos-sdk/x/staking/client/rest"
 
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
@@ -51,6 +53,7 @@ import (
 	stakingibcclient "github.com/cosmos/cosmos-sdk/x/staking-ibc/client"
 	stakingimintlient "github.com/cosmos/cosmos-sdk/x/staking-mint/client"
 	stakingclient "github.com/cosmos/cosmos-sdk/x/staking/client"
+	swapclient "github.com/cosmos/cosmos-sdk/x/uniswap/client"
 
 	_ "github.com/cosmos/cosmos-sdk/client/lcd/statik"
 )
@@ -85,6 +88,7 @@ func main() {
 		stakingibcclient.NewModuleClient(sti.StoreKey, cdc),
 		ibcclient.NewModuleClient("ibc", cdc),
 		stakingimintlient.NewModuleClient(smi.StoreKey, cdc),
+		swapclient.NewModuleClient(swap.StoreKey,cdc),
 	}
 
 	rootCmd := &cobra.Command{

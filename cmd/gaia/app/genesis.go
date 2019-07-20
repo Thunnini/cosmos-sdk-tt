@@ -23,6 +23,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
+	swap "github.com/cosmos/cosmos-sdk/x/uniswap"
 )
 
 var (
@@ -42,6 +43,7 @@ type GenesisState struct {
 	GovData      gov.GenesisState      `json:"gov"`
 	CrisisData   crisis.GenesisState   `json:"crisis"`
 	SlashingData slashing.GenesisState `json:"slashing"`
+	SwapData     swap.GenesisState     `json:"swap"`
 	GenTxs       []json.RawMessage     `json:"gentxs"`
 }
 
@@ -49,7 +51,7 @@ func NewGenesisState(accounts []GenesisAccount, authData auth.GenesisState,
 	bankData bank.GenesisState,
 	stakingData staking.GenesisState, mintData mint.GenesisState,
 	distrData distr.GenesisState, govData gov.GenesisState, crisisData crisis.GenesisState,
-	slashingData slashing.GenesisState) GenesisState {
+	slashingData slashing.GenesisState, swapData swap.GenesisState) GenesisState {
 
 	return GenesisState{
 		Accounts:     accounts,
@@ -61,6 +63,7 @@ func NewGenesisState(accounts []GenesisAccount, authData auth.GenesisState,
 		GovData:      govData,
 		CrisisData:   crisisData,
 		SlashingData: slashingData,
+		SwapData:     swapData,
 	}
 }
 
@@ -214,6 +217,7 @@ func NewDefaultGenesisState() GenesisState {
 		GovData:      gov.DefaultGenesisState(),
 		CrisisData:   crisis.DefaultGenesisState(),
 		SlashingData: slashing.DefaultGenesisState(),
+		SwapData:     swap.DefaultGenesisState(),
 		GenTxs:       nil,
 	}
 }

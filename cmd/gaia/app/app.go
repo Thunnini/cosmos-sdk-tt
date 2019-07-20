@@ -27,6 +27,7 @@ import (
 	stakingibc "github.com/cosmos/cosmos-sdk/x/staking-ibc"
 	stakingmint "github.com/cosmos/cosmos-sdk/x/staking-mint"
 	"github.com/cosmos/cosmos-sdk/x/supply"
+	swap "github.com/cosmos/cosmos-sdk/x/swap"
 )
 
 const (
@@ -65,6 +66,7 @@ type GaiaApp struct {
 	keyIBC           *sdk.KVStoreKey
 	keyStakingIBC    *sdk.KVStoreKey
 	keyStakingMint   *sdk.KVStoreKey
+	keySwap          *sdk.KVStoreKey
 
 	// Manage getting and setting accounts
 	accountKeeper       auth.AccountKeeper
@@ -81,6 +83,7 @@ type GaiaApp struct {
 	ibcKeeper           mock.Keeper
 	stakingIBCKeeper    stakingibc.StakingIBCKeeper
 	stakingMintKeeper   stakingmint.StakingMintKeeper
+	swapKeeper          swap.Keeper
 }
 
 // NewGaiaApp returns a reference to an initialized GaiaApp.
@@ -113,6 +116,7 @@ func NewGaiaApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 		keyIBC:           sdk.NewKVStoreKey("ibc"),
 		keyStakingIBC:    sdk.NewKVStoreKey("staking-ibc"),
 		keyStakingMint:   sdk.NewKVStoreKey("staking-mint"),
+		keySwap:          sdk.NewKVStoreKey("swap"),
 	}
 
 	app.paramsKeeper = params.NewKeeper(app.cdc, app.keyParams, app.tkeyParams)
@@ -180,6 +184,7 @@ func NewGaiaApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 	app.ibcKeeper = mock.NewKeeper(app.cdc, app.keyIBC, "conn")
 	app.stakingMintKeeper = stakingmint.NewStakingMintKeeper(app.cdc, app.keyStakingMint, &app.ibcKeeper, app.stakingKeeper, app.supplyKeeper)
 	app.stakingIBCKeeper = stakingibc.NewStakingIBCKeeper(app.cdc, app.keyStakingIBC, &app.ibcKeeper, app.stakingKeeper, app.supplyKeeper, app.distrKeeper)
+	app.swapKeeper = swap.NewKeeper(app.cdc, app.keySwap, app.bankKeeper)
 
 	// register the crisis routes
 	bank.RegisterInvariants(&app.crisisKeeper, app.accountKeeper)
@@ -196,7 +201,8 @@ func NewGaiaApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 		AddRoute(crisis.RouterKey, crisis.NewHandler(app.crisisKeeper)).
 		AddRoute(stakingibc.RouterKey, stakingibc.NewHandler(app.stakingIBCKeeper)).
 		AddRoute(mock.RouterKey, mock.NewHandler(app.ibcKeeper)).
-		AddRoute(stakingmint.RouterKey, stakingmint.NewHandler(app.stakingMintKeeper))
+		AddRoute(stakingmint.RouterKey, stakingmint.NewHandler(app.stakingMintKeeper)).
+		AddRoute(swap.RouterKey, swap.NewHandler(app.swapKeeper))
 
 	app.QueryRouter().
 		AddRoute(auth.QuerierRoute, auth.NewQuerier(app.accountKeeper)).
@@ -209,7 +215,7 @@ func NewGaiaApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 	// initialize BaseApp
 	app.MountStores(app.keyMain, app.keyAccount, app.keyStaking, app.keyMint, app.keyDistr,
 		app.keySlashing, app.keyGov, app.keyFeeCollection, app.keyParams,
-		app.tkeyParams, app.tkeyStaking, app.tkeyDistr, app.keySupply, app.keyIBC, app.keyStakingIBC, app.keyStakingMint,
+		app.tkeyParams, app.tkeyStaking, app.tkeyDistr, app.keySupply, app.keyIBC, app.keyStakingIBC, app.keyStakingMint, app.keySwap,
 	)
 	app.SetInitChainer(app.initChainer)
 	app.SetBeginBlocker(app.BeginBlocker)
@@ -242,6 +248,7 @@ func MakeCodec() *codec.Codec {
 	supply.RegisterCodec(cdc)
 	stakingibc.RegisterCodec(cdc)
 	stakingmint.RegisterCodec(cdc)
+	swap.RegisterCodec(cdc)
 
 	return cdc
 }
@@ -310,6 +317,7 @@ func (app *GaiaApp) initFromGenesisState(ctx sdk.Context, genesisState GenesisSt
 	gov.InitGenesis(ctx, app.govKeeper, genesisState.GovData)
 	crisis.InitGenesis(ctx, app.crisisKeeper, genesisState.CrisisData)
 	mint.InitGenesis(ctx, app.mintKeeper, genesisState.MintData)
+	swap.InitGenesis(ctx, app.swapKeeper, genesisState.SwapData)
 
 	// validate genesis state
 	if err := GaiaValidateGenesisState(genesisState); err != nil {

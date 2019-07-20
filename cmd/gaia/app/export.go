@@ -17,6 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
+	swap "github.com/cosmos/cosmos-sdk/x/swap"
 )
 
 // export the state of gaia for a genesis file
@@ -49,6 +50,7 @@ func (app *GaiaApp) ExportAppStateAndValidators(forZeroHeight bool, jailWhiteLis
 		gov.ExportGenesis(ctx, app.govKeeper),
 		crisis.ExportGenesis(ctx, app.crisisKeeper),
 		slashing.ExportGenesis(ctx, app.slashingKeeper),
+		swap.ExportGenesis(ctx, app.swapKeeper), // Panic: not yet implemented
 	)
 	appState, err = codec.MarshalJSONIndent(app.cdc, genState)
 	if err != nil {

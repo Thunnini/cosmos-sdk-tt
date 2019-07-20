@@ -138,6 +138,10 @@ func (keeper Keeper) SetPool(ctx sdk.Context, pool Pool) sdk.Error {
 		return sdk.ErrInternal(fmt.Sprintf("Not coin denom (expected: %s, actual: %s)", config.CoinDenom, pool.BalanceCoin.Denom))
 	}
 
+	if pool.BalanceCoin.Denom == pool.BalanceToken.Denom {
+		return sdk.ErrInternal("Coin's denom and Token's denom should not be equal")
+	}
+
 	if pool.BalanceCoin.Amount.LTE(sdk.NewInt(0)) || pool.BalanceToken.Amount.LTE(sdk.NewInt(0)) {
 		return sdk.ErrInternal(fmt.Sprintf("Pool has 0 coin or token (coin: %s, token: %s)", pool.BalanceCoin.String(), pool.BalanceToken.String()))
 	}

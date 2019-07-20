@@ -6,8 +6,8 @@ import (
 
 // GenesisState is the bank state that must be provided at genesis.
 type GenesisState struct {
-	CoinDenom string `json: "coin_denom"`
-	Pools     []Pool `json: "pools`
+	CoinDenom string `json:"coin_denom"`
+	Pools     []Pool `json:"pools`
 }
 
 // NewGenesisState creates a new genesis state.
@@ -21,7 +21,12 @@ func NewGenesisState(coinDenom string, pools []Pool) GenesisState {
 // DefaultGenesisState returns a default genesis state
 func DefaultGenesisState() GenesisState {
 	return NewGenesisState(
-		"uatom", []Pool{},
+		"uatom", []Pool{
+			Pool{
+				BalanceCoin:  sdk.NewCoin("uatom", sdk.NewInt(1)),
+				BalanceToken: sdk.NewCoin("utest", sdk.NewInt(1)),
+			},
+		},
 	)
 }
 
@@ -34,7 +39,10 @@ func InitGenesis(ctx sdk.Context, keeper Keeper, data GenesisState) {
 	keeper.SetPoolConfig(ctx, config)
 
 	for _, pool := range data.Pools {
-		keeper.SetPool(ctx, pool)
+		err := keeper.SetPool(ctx, pool)
+		if err != nil {
+			panic(err.Error())
+		}
 	}
 }
 

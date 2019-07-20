@@ -22,14 +22,14 @@ func GetSwapTxCmd(cdc *codec.Codec) *cobra.Command {
 				WithAccountDecoder(cdc)
 
 			// parse coins
-			asset, err := sdk.ParseCoin(args[1])
+			asset, err := sdk.ParseCoin(args[0])
 			if err != nil {
 				return err
 			}
 
 			from := cliCtx.GetFromAddress()
 
-			msg := swap.NewMsgSwap(from, asset, args[2])
+			msg := swap.NewMsgSwap(from, asset, args[1])
 			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg}, false)
 		},
 	}

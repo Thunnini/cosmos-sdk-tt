@@ -74,7 +74,7 @@ func (keeper StakingMintKeeper) OnReceivePacket(ctx sdk.Context, packet []byte) 
 		return err
 	}
 	amount := sdk.NewDecFromInt(ibcDelegate.Amount.Amount).Mul(ratio).RoundInt()
-	coins := sdk.NewCoins(sdk.NewCoin("buatom", amount))
+	coins := sdk.NewCoins(sdk.NewCoin("ubatom", amount))
 	err = keeper.supplyKeeper.MintCoins(ctx, recipientModuleName, coins)
 	if err != nil {
 		return err
@@ -107,11 +107,11 @@ func (keeper StakingMintKeeper) UndelegateLiquid(ctx sdk.Context, sender sdk.Acc
 	}
 	amount := sdk.NewDecFromInt(info.Amount.Amount).Mul(ratio).RoundInt()
 
-	sdkErr := keeper.supplyKeeper.SendCoinsFromAccountToModule(ctx, sender, "staking-burn", sdk.NewCoins(sdk.NewCoin("buatom", amount)))
+	sdkErr := keeper.supplyKeeper.SendCoinsFromAccountToModule(ctx, sender, "staking-burn", sdk.NewCoins(sdk.NewCoin("ubatom", amount)))
 	if sdkErr != nil {
 		return sdk.Tags{}, sdkErr
 	}
-	sdkErr = keeper.supplyKeeper.BurnCoins(ctx, "staking-burn", sdk.NewCoins(sdk.NewCoin("buatom", amount)))
+	sdkErr = keeper.supplyKeeper.BurnCoins(ctx, "staking-burn", sdk.NewCoins(sdk.NewCoin("ubatom", amount)))
 	if sdkErr != nil {
 		return sdk.Tags{}, sdkErr
 	}

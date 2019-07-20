@@ -27,7 +27,7 @@ import (
 	stakingibc "github.com/cosmos/cosmos-sdk/x/staking-ibc"
 	stakingmint "github.com/cosmos/cosmos-sdk/x/staking-mint"
 	"github.com/cosmos/cosmos-sdk/x/supply"
-	swap "github.com/cosmos/cosmos-sdk/x/swap"
+	swap "github.com/cosmos/cosmos-sdk/x/uniswap"
 )
 
 const (
@@ -184,7 +184,7 @@ func NewGaiaApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 	app.ibcKeeper = mock.NewKeeper(app.cdc, app.keyIBC, "conn")
 	app.stakingMintKeeper = stakingmint.NewStakingMintKeeper(app.cdc, app.keyStakingMint, &app.ibcKeeper, app.stakingKeeper, app.supplyKeeper)
 	app.stakingIBCKeeper = stakingibc.NewStakingIBCKeeper(app.cdc, app.keyStakingIBC, &app.ibcKeeper, app.stakingKeeper, app.supplyKeeper, app.distrKeeper)
-	app.swapKeeper = swap.NewKeeper(app.cdc, app.keySwap, app.bankKeeper)
+	app.swapKeeper = swap.NewKeeper(app.cdc, app.keySwap, app.paramsKeeper.Subspace("swap"), app.bankKeeper)
 
 	// register the crisis routes
 	bank.RegisterInvariants(&app.crisisKeeper, app.accountKeeper)

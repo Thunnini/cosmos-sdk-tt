@@ -17,7 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
-	swap "github.com/cosmos/cosmos-sdk/x/swap"
+	swap "github.com/cosmos/cosmos-sdk/x/uniswap"
 )
 
 // export the state of gaia for a genesis file

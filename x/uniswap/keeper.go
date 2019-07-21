@@ -62,6 +62,10 @@ func (keeper Keeper) AddLiquidity(ctx sdk.Context, coin sdk.Coin, token sdk.Coin
 }
 
 func (keeper Keeper) Swap(ctx sdk.Context, asset sdk.Coin, targetDenom string) (sdk.Coin, sdk.Error) {
+	if asset.Denom == targetDenom {
+		return sdk.Coin{}, sdk.ErrInternal("Can't swap identical token")
+	}
+
 	config := keeper.GetPoolConfig(ctx)
 	if config.CoinDenom == asset.Denom {
 		return keeper.swapFromCoin(ctx, asset, targetDenom)

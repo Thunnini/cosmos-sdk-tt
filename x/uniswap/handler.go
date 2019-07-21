@@ -24,7 +24,7 @@ func handleMsgSwap(ctx sdk.Context, keeper Keeper, msg MsgSwap) sdk.Result {
 		return err.Result()
 	}
 
-	result, err := keeper.Swap(ctx, msg.Asset, msg.TargetDenom)
+	result, tags, err := keeper.Swap(ctx, msg.Asset, msg.TargetDenom)
 	if err != nil {
 		return err.Result()
 	}
@@ -33,5 +33,7 @@ func handleMsgSwap(ctx sdk.Context, keeper Keeper, msg MsgSwap) sdk.Result {
 		return err.Result()
 	}
 
-	return sdk.Result{}
+	return sdk.Result{
+		Tags: tags,
+	}
 }

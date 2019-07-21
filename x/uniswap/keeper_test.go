@@ -35,7 +35,7 @@ func TestSwapFromCoin(t *testing.T) {
 	require.Equal(t, "1000", pool.BalanceCoin.Amount.String())
 	require.Equal(t, "1000", pool.BalanceToken.Amount.String())
 
-	asset, err := chain.sk.Swap(chain.ctx, sdk.NewCoin("uatom", sdk.NewInt(500)), "udai")
+	asset, _, err := chain.sk.Swap(chain.ctx, sdk.NewCoin("uatom", sdk.NewInt(500)), "udai")
 	require.Nil(t, err)
 	require.Equal(t, "udai", asset.Denom)
 	require.Equal(t, sdk.NewInt(333).String(), asset.Amount.String())
@@ -63,7 +63,7 @@ func TestSwapToCoin(t *testing.T) {
 	require.Equal(t, "1000", pool.BalanceCoin.Amount.String())
 	require.Equal(t, "1000", pool.BalanceToken.Amount.String())
 
-	asset, err := chain.sk.Swap(chain.ctx, sdk.NewCoin("udai", sdk.NewInt(500)), "uatom")
+	asset, _, err := chain.sk.Swap(chain.ctx, sdk.NewCoin("udai", sdk.NewInt(500)), "uatom")
 	require.Nil(t, err)
 	require.Equal(t, "uatom", asset.Denom)
 	require.Equal(t, sdk.NewInt(333).String(), asset.Amount.String())
@@ -99,7 +99,7 @@ func TestSwapFromTokenToToken(t *testing.T) {
 	require.Equal(t, "1000", pool.BalanceCoin.Amount.String())
 	require.Equal(t, "1000", pool.BalanceToken.Amount.String())
 
-	asset, err := chain.sk.Swap(chain.ctx, sdk.NewCoin("ubatom", sdk.NewInt(500)), "udai")
+	asset, _, err := chain.sk.Swap(chain.ctx, sdk.NewCoin("ubatom", sdk.NewInt(500)), "udai")
 	require.Nil(t, err)
 	require.Equal(t, "udai", asset.Denom)
 	require.Equal(t, sdk.NewInt(250).String(), asset.Amount.String())

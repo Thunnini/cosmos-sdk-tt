@@ -61,23 +61,35 @@ func (keeper Keeper) AddLiquidity(ctx sdk.Context, coin sdk.Coin, token sdk.Coin
 	return nil
 }
 
-func (keeper Keeper) Swap(ctx sdk.Context, asset sdk.Coin, targetDenom string) (sdk.Coin, sdk.Error) {
+func (keeper Keeper) Swap(ctx sdk.Context, asset sdk.Coin, targetDenom string) (sdk.Coin, sdk.Tags, sdk.Error) {
 	if asset.Denom == targetDenom {
-		return sdk.Coin{}, sdk.ErrInternal("Can't swap identical token")
+		return sdk.Coin{}, sdk.Tags{}, sdk.ErrInternal("Can't swap identical token")
 	}
 
 	config := keeper.GetPoolConfig(ctx)
 	if config.CoinDenom == asset.Denom {
-		return keeper.swapFromCoin(ctx, asset, targetDenom)
+		coin, err := keeper.swapFromCoin(ctx, asset, targetDenom)
+		if err != nil {
+			return sdk.Coin{}, sdk.Tags{}, err
+		}
+		return coin, sdk.NewTags("swap", coin.String()), nil
 	} else {
 		if targetDenom == config.CoinDenom {
-			return keeper.swapToCoin(ctx, asset)
+			coin, err := keeper.swapToCoin(ctx, asset)
+			if err != nil {
+				return sdk.Coin{}, sdk.Tags{}, err
+			}
+			return coin, sdk.NewTags("swap", coin.String()), nil
 		} else {
 			intermediate, err := keeper.swapToCoin(ctx, asset)
 			if err != nil {
-				return sdk.Coin{}, err
+				return sdk.Coin{}, sdk.Tags{}, err
 			}
-			return keeper.swapFromCoin(ctx, intermediate, targetDenom)
+			coin, err := keeper.swapFromCoin(ctx, intermediate, targetDenom)
+			if err != nil {
+				return sdk.Coin{}, sdk.Tags{}, err
+			}
+			return coin, sdk.NewTags("swap", coin.String()), nil
 		}
 	}
 }

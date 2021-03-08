@@ -22,6 +22,17 @@ message Minter {
 message Params {
   option (gogoproto.goproto_stringer) = false;
 
+  // We can keep params like this for Osmosis minter
+  // MintDenom
+  // AnnualProvisions
+  // MaxRewardPerEpoch
+  // MinRewardPerEpoch
+  // EpochDuration
+  // HalvenStartTime
+  // HalvenPeriod
+  // GoalBonded -- needed?
+  // KeyBlocksPerYear -- needed?
+
   // type of coin to mint
   string mint_denom = 1;
   // maximum annual change in inflation rate

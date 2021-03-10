@@ -4,6 +4,9 @@ package cosmos.mint.v1beta1;
 option go_package = "github.com/cosmos/cosmos-sdk/x/mint/types";
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
 
 // Minter represents the minting state.
 message Minter {
@@ -22,43 +25,41 @@ message Minter {
 message Params {
   option (gogoproto.goproto_stringer) = false;
 
-  // We can keep params like this for Osmosis minter
-  // MintDenom
-  // AnnualProvisions
-  // MaxRewardPerEpoch
-  // MinRewardPerEpoch
-  // EpochDuration
-  // HalvenStartTime
-  // HalvenPeriod
-  // GoalBonded -- needed?
-  // KeyBlocksPerYear -- needed?
 
   // type of coin to mint
   string mint_denom = 1;
-  // maximum annual change in inflation rate
-  string inflation_rate_change = 2 [
-    (gogoproto.moretags)   = "yaml:\"inflation_rate_change\"",
+  // annual provisions
+  string annual_provisions = 2 [
+    (gogoproto.moretags)   = "yaml:\"annual_provisions\"",
     (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec",
     (gogoproto.nullable)   = false
   ];
-  // maximum inflation rate
-  string inflation_max = 3 [
-    (gogoproto.moretags)   = "yaml:\"inflation_max\"",
+  // maximum reward per epoch
+  string max_reward_per_epoch = 3 [
+    (gogoproto.moretags)   = "yaml:\"max_reward_per_epoch\"",
     (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec",
     (gogoproto.nullable)   = false
   ];
-  // minimum inflation rate
-  string inflation_min = 4 [
-    (gogoproto.moretags)   = "yaml:\"inflation_min\"",
+  // minimum reward per epoch
+  string min_reward_per_epoch = 4 [
+    (gogoproto.moretags)   = "yaml:\"min_reward_per_epoch\"",
     (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec",
     (gogoproto.nullable)   = false
   ];
-  // goal of percent bonded atoms
-  string goal_bonded = 5 [
-    (gogoproto.moretags)   = "yaml:\"goal_bonded\"",
-    (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec",
-    (gogoproto.nullable)   = false
+  // duration of an epoch
+  google.protobuf.Duration epoch_duration = 5 [
+    (gogoproto.moretags)    = "yaml:\"epoch_duration\"",
+    (gogoproto.stdduration) = true,
+    (gogoproto.nullable)    = false
   ];
+  // duration of an epoch
+  google.protobuf.Timestamp halven_start_time = 6 [
+    (gogoproto.moretags)    = "yaml:\"halven_start_time\"",
+    (gogoproto.stdtime) = true,
+    (gogoproto.nullable)    = false
+  ];
+  // number of epochs in halven period
+  uint64 halven_period_in_epoch = 7 [(gogoproto.moretags) = "yaml:\"halven_period_in_epoch\""];
   // expected blocks per year
-  uint64 blocks_per_year = 6 [(gogoproto.moretags) = "yaml:\"blocks_per_year\""];
+  uint64 blocks_per_year = 8 [(gogoproto.moretags) = "yaml:\"blocks_per_year\""];
 }

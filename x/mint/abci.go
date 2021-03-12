@@ -13,16 +13,26 @@ import (
 func BeginBlocker(ctx sdk.Context, k keeper.Keeper) {
 	defer telemetry.ModuleMeasureSince(types.ModuleName, time.Now(), telemetry.MetricKeyBeginBlocker)
 
+	epochDuration := k.GetParams(ctx).EpochDuration
+	nextEpochTimeEst := k.GetLastEpochTime(ctx).Add(epochDuration)
+	if ctx.BlockTime().Before(nextEpochTimeEst) {
+		return
+	}
+
+	k.SetLastEpochTime(ctx, ctx.BlockTime())
+	k.SetEpochNum(ctx, k.GetEpochNum(ctx)+1)
+
 	// fetch stored minter & params
 	minter := k.GetMinter(ctx)
 	params := k.GetParams(ctx)
 
-	// recalculate inflation rate
-	totalStakingSupply := k.StakingTokenSupply(ctx)
-	bondedRatio := k.BondedRatio(ctx)
-	minter.Inflation = minter.NextInflationRate(params, bondedRatio)
-	minter.AnnualProvisions = minter.NextAnnualProvisions(params, totalStakingSupply)
-	k.SetMinter(ctx, minter)
+	if k.GetEpochNum(ctx) >= int64(k.GetParams(ctx).HalvenPeriodInEpoch)+k.GetLastHalvenEpochNum(ctx) {
+		// Halven the reward per halven period
+		totalStakingSupply := k.StakingTokenSupply(ctx)
+		minter.AnnualProvisions = minter.NextAnnualProvisions(params, totalStakingSupply)
+		k.SetMinter(ctx, minter)
+		k.SetLastHalvenEpochNum(ctx, k.GetEpochNum(ctx))
+	}
 
 	// mint coins, update supply
 	mintedCoin := minter.BlockProvision(params)
@@ -46,8 +56,6 @@ func BeginBlocker(ctx sdk.Context, k keeper.Keeper) {
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
 			types.EventTypeMint,
-			sdk.NewAttribute(types.AttributeKeyBondedRatio, bondedRatio.String()),
-			sdk.NewAttribute(types.AttributeKeyInflation, minter.Inflation.String()),
 			sdk.NewAttribute(types.AttributeKeyAnnualProvisions, minter.AnnualProvisions.String()),
 			sdk.NewAttribute(sdk.AttributeKeyAmount, mintedCoin.Amount.String()),
 		),

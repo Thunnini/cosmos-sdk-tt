@@ -10,11 +10,8 @@ import "google/protobuf/duration.proto";
 
 // Minter represents the minting state.
 message Minter {
-  // current annual inflation rate
-  string inflation = 1
-      [(gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec", (gogoproto.nullable) = false];
   // current annual expected provisions
-  string annual_provisions = 2 [
+  string annual_provisions = 1 [
     (gogoproto.moretags)   = "yaml:\"annual_provisions\"",
     (gogoproto.customtype) = "github.com/cosmos/cosmos-sdk/types.Dec",
     (gogoproto.nullable)   = false
@@ -52,14 +49,8 @@ message Params {
     (gogoproto.stdduration) = true,
     (gogoproto.nullable)    = false
   ];
-  // duration of an epoch
-  google.protobuf.Timestamp halven_start_time = 6 [
-    (gogoproto.moretags)    = "yaml:\"halven_start_time\"",
-    (gogoproto.stdtime) = true,
-    (gogoproto.nullable)    = false
-  ];
   // number of epochs in halven period
-  uint64 halven_period_in_epoch = 7 [(gogoproto.moretags) = "yaml:\"halven_period_in_epoch\""];
-  // expected blocks per year
-  uint64 blocks_per_year = 8 [(gogoproto.moretags) = "yaml:\"blocks_per_year\""];
+  uint64 halven_period_in_epoch = 6 [(gogoproto.moretags) = "yaml:\"halven_period_in_epoch\""];
+  // expected epochs per year
+  uint64 epochs_per_year = 7 [(gogoproto.moretags) = "yaml:\"epochs_per_year\""];
 }

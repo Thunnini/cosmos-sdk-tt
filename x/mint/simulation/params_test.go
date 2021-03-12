@@ -19,10 +19,8 @@ func TestParamChangest(t *testing.T) {
 		simValue    string
 		subspace    string
 	}{
-		{"mint/InflationRateChange", "InflationRateChange", "\"0.230000000000000000\"", "mint"},
-		{"mint/InflationMax", "InflationMax", "\"0.200000000000000000\"", "mint"},
-		{"mint/InflationMin", "InflationMin", "\"0.070000000000000000\"", "mint"},
-		{"mint/GoalBonded", "GoalBonded", "\"0.670000000000000000\"", "mint"},
+		{"mint/MaxRewardPerEpoch", "MaxRewardPerEpoch", "\"0.200000000000000000\"", "mint"},
+		{"mint/MinRewardPerEpoch", "MinRewardPerEpoch", "\"0.070000000000000000\"", "mint"},
 	}
 
 	paramChanges := simulation.ParamChanges(r)

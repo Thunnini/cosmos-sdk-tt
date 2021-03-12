@@ -35,9 +35,8 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.Require().NoError(cfg.Codec.UnmarshalJSON(genesisState[minttypes.ModuleName], &mintData))
 
 	inflation := sdk.MustNewDecFromStr("1.0")
-	mintData.Minter.Inflation = inflation
-	mintData.Params.InflationMin = inflation
-	mintData.Params.InflationMax = inflation
+	mintData.Params.MinRewardPerEpoch = inflation
+	mintData.Params.MaxRewardPerEpoch = inflation
 
 	mintDataBz, err := cfg.Codec.MarshalJSON(&mintData)
 	s.Require().NoError(err)
@@ -74,15 +73,6 @@ func (s *IntegrationTestSuite) TestQueryGRPC() {
 			&minttypes.QueryParamsResponse{
 				Params: minttypes.NewParams("stake", sdk.NewDecWithPrec(13, 2), sdk.NewDecWithPrec(100, 2),
 					sdk.NewDec(1), sdk.NewDecWithPrec(67, 2), (60 * 60 * 8766 / 5)),
-			},
-		},
-		{
-			"gRPC request inflation",
-			fmt.Sprintf("%s/cosmos/mint/v1beta1/inflation", baseURL),
-			map[string]string{},
-			&minttypes.QueryInflationResponse{},
-			&minttypes.QueryInflationResponse{
-				Inflation: sdk.NewDec(1),
 			},
 		},
 		{

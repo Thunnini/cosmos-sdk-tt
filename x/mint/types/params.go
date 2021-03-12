@@ -14,12 +14,10 @@ import (
 
 // Parameter store keys
 var (
-	KeyMintDenom           = []byte("MintDenom")
-	KeyInflationRateChange = []byte("InflationRateChange")
-	KeyInflationMax        = []byte("InflationMax")
-	KeyInflationMin        = []byte("InflationMin")
-	KeyGoalBonded          = []byte("GoalBonded")
-	KeyBlocksPerYear       = []byte("BlocksPerYear")
+	KeyMintDenom         = []byte("MintDenom")
+	KeyMaxRewardPerEpoch = []byte("MaxRewardPerEpoch")
+	KeyMinRewardPerEpoch = []byte("MinRewardPerEpoch")
+	KeyEpochsPerYear     = []byte("EpochsPerYear")
 )
 
 // ParamTable for minting module.
@@ -28,16 +26,14 @@ func ParamKeyTable() paramtypes.KeyTable {
 }
 
 func NewParams(
-	mintDenom string, inflationRateChange, inflationMax, inflationMin, goalBonded sdk.Dec, blocksPerYear uint64,
+	mintDenom string, maxRewardPerEpoch, minRewardPerEpoch sdk.Dec, epochsPerYear uint64,
 ) Params {
 
 	return Params{
-		MintDenom:           mintDenom,
-		InflationRateChange: inflationRateChange,
-		InflationMax:        inflationMax,
-		InflationMin:        inflationMin,
-		GoalBonded:          goalBonded,
-		BlocksPerYear:       blocksPerYear,
+		MintDenom:         mintDenom,
+		MaxRewardPerEpoch: maxRewardPerEpoch,
+		MinRewardPerEpoch: minRewardPerEpoch,
+		EpochsPerYear:     epochsPerYear,
 	}
 }
 
@@ -50,8 +46,8 @@ func DefaultParams() Params {
 		MinRewardPerEpoch:   sdk.NewDec(4000000),                     // per epoch min
 		MaxRewardPerEpoch:   sdk.NewDec(6000000),                     // per epoch max
 		EpochDuration:       epochDuration,                           // 1 week
-		HalvenPeriodInEpoch: 156, // 3 years
-		EpochsPerYear:       52,  // assuming 5 second block times
+		HalvenPeriodInEpoch: 156,                                     // 3 years
+		EpochsPerYear:       52,                                      // assuming 5 second block times
 	}
 }
 
@@ -60,25 +56,19 @@ func (p Params) Validate() error {
 	if err := validateMintDenom(p.MintDenom); err != nil {
 		return err
 	}
-	if err := validateInflationRateChange(p.InflationRateChange); err != nil {
+	if err := validateMaxRewardPerEpoch(p.MaxRewardPerEpoch); err != nil {
 		return err
 	}
-	if err := validateInflationMax(p.InflationMax); err != nil {
+	if err := validateMinRewardPerEpoch(p.MinRewardPerEpoch); err != nil {
 		return err
 	}
-	if err := validateInflationMin(p.InflationMin); err != nil {
+	if err := validateEpochsPerYear(p.EpochsPerYear); err != nil {
 		return err
 	}
-	if err := validateGoalBonded(p.GoalBonded); err != nil {
-		return err
-	}
-	if err := validateBlocksPerYear(p.BlocksPerYear); err != nil {
-		return err
-	}
-	if p.InflationMax.LT(p.InflationMin) {
+	if p.MaxRewardPerEpoch.LT(p.MinRewardPerEpoch) {
 		return fmt.Errorf(
 			"max inflation (%s) must be greater than or equal to min inflation (%s)",
-			p.InflationMax, p.InflationMin,
+			p.MaxRewardPerEpoch, p.MinRewardPerEpoch,
 		)
 	}
 
@@ -96,11 +86,9 @@ func (p Params) String() string {
 func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 	return paramtypes.ParamSetPairs{
 		paramtypes.NewParamSetPair(KeyMintDenom, &p.MintDenom, validateMintDenom),
-		paramtypes.NewParamSetPair(KeyInflationRateChange, &p.InflationRateChange, validateInflationRateChange),
-		paramtypes.NewParamSetPair(KeyInflationMax, &p.InflationMax, validateInflationMax),
-		paramtypes.NewParamSetPair(KeyInflationMin, &p.InflationMin, validateInflationMin),
-		paramtypes.NewParamSetPair(KeyGoalBonded, &p.GoalBonded, validateGoalBonded),
-		paramtypes.NewParamSetPair(KeyBlocksPerYear, &p.BlocksPerYear, validateBlocksPerYear),
+		paramtypes.NewParamSetPair(KeyMaxRewardPerEpoch, &p.MaxRewardPerEpoch, validateMaxRewardPerEpoch),
+		paramtypes.NewParamSetPair(KeyMinRewardPerEpoch, &p.MinRewardPerEpoch, validateMinRewardPerEpoch),
+		paramtypes.NewParamSetPair(KeyEpochsPerYear, &p.EpochsPerYear, validateEpochsPerYear),
 	}
 }
 
@@ -120,23 +108,7 @@ func validateMintDenom(i interface{}) error {
 	return nil
 }
 
-func validateInflationRateChange(i interface{}) error {
-	v, ok := i.(sdk.Dec)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
-	if v.IsNegative() {
-		return fmt.Errorf("inflation rate change cannot be negative: %s", v)
-	}
-	if v.GT(sdk.OneDec()) {
-		return fmt.Errorf("inflation rate change too large: %s", v)
-	}
-
-	return nil
-}
-
-func validateInflationMax(i interface{}) error {
+func validateMaxRewardPerEpoch(i interface{}) error {
 	v, ok := i.(sdk.Dec)
 	if !ok {
 		return fmt.Errorf("invalid parameter type: %T", i)
@@ -152,7 +124,7 @@ func validateInflationMax(i interface{}) error {
 	return nil
 }
 
-func validateInflationMin(i interface{}) error {
+func validateMinRewardPerEpoch(i interface{}) error {
 	v, ok := i.(sdk.Dec)
 	if !ok {
 		return fmt.Errorf("invalid parameter type: %T", i)
@@ -168,23 +140,7 @@ func validateInflationMin(i interface{}) error {
 	return nil
 }
 
-func validateGoalBonded(i interface{}) error {
-	v, ok := i.(sdk.Dec)
-	if !ok {
-		return fmt.Errorf("invalid parameter type: %T", i)
-	}
-
-	if v.IsNegative() {
-		return fmt.Errorf("goal bonded cannot be negative: %s", v)
-	}
-	if v.GT(sdk.OneDec()) {
-		return fmt.Errorf("goal bonded too large: %s", v)
-	}
-
-	return nil
-}
-
-func validateBlocksPerYear(i interface{}) error {
+func validateEpochsPerYear(i interface{}) error {
 	v, ok := i.(uint64)
 	if !ok {
 		return fmt.Errorf("invalid parameter type: %T", i)

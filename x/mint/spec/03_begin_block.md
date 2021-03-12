@@ -17,16 +17,16 @@ as between 7% and 20%.
 
 ```
 NextInflationRate(params Params, bondedRatio sdk.Dec) (inflation sdk.Dec) {
-	inflationRateChangePerYear = (1 - bondedRatio/params.GoalBonded) * params.InflationRateChange
-	inflationRateChange = inflationRateChangePerYear/blocksPerYr
+	inflationRateChangePerYear = (baseMintAmount) * 0.5 ^ (epochNum % halveningPeriod)
+	inflationRateChange = inflationRateChangePerYear/epochsPerYear
 
 	// increase the new annual inflation for this next cycle
 	inflation += inflationRateChange
 	if inflation > params.InflationMax {
 		inflation = params.InflationMax
 	}
-	if inflation < params.InflationMin {
-		inflation = params.InflationMin
+	if inflation < params.MinRewardPerEpoch {
+		inflation = params.MinRewardPerEpoch
 	}
 
 	return inflation
@@ -49,6 +49,6 @@ Calculate the provisions generated for each block based on current annual provis
 
 ```
 BlockProvision(params Params) sdk.Coin {
-	provisionAmt = AnnualProvisions/ params.BlocksPerYear
+	provisionAmt = AnnualProvisions/ params.EpochsPerYear
 	return sdk.NewCoin(params.MintDenom, provisionAmt.Truncate())
 ```

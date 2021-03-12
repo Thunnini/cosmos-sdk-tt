@@ -1,8 +1,6 @@
 package types
 
 import (
-	"fmt"
-
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -15,16 +13,14 @@ func NewMinter(annualProvisions sdk.Dec) Minter {
 }
 
 // InitialMinter returns an initial Minter object with a given inflation value.
-func InitialMinter(inflation sdk.Dec) Minter {
+func InitialMinter() Minter {
 	return NewMinter(sdk.NewDec(0))
 }
 
 // DefaultInitialMinter returns a default initial Minter object for a new chain
 // which uses an inflation rate of 13%.
 func DefaultInitialMinter() Minter {
-	return InitialMinter(
-		sdk.NewDecWithPrec(13, 2),
-	)
+	return InitialMinter()
 }
 
 // validate minter

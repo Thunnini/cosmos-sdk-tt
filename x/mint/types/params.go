@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	time "time"
 
 	yaml "gopkg.in/yaml.v2"
 
@@ -42,13 +43,15 @@ func NewParams(
 
 // default minting module parameters
 func DefaultParams() Params {
+	epochDuration, _ := time.ParseDuration("168h") // 1 week
 	return Params{
 		MintDenom:           sdk.DefaultBondDenom,
-		InflationRateChange: sdk.NewDecWithPrec(13, 2),
-		InflationMax:        sdk.NewDecWithPrec(20, 2),
-		InflationMin:        sdk.NewDecWithPrec(7, 2),
-		GoalBonded:          sdk.NewDecWithPrec(67, 2),
-		BlocksPerYear:       uint64(60 * 60 * 8766 / 5), // assuming 5 second block times
+		AnnualProvisions:    sdk.NewDec(5000000).Mul(sdk.NewDec(52)), // yearly rewards
+		MinRewardPerEpoch:   sdk.NewDec(4000000),                     // per epoch min
+		MaxRewardPerEpoch:   sdk.NewDec(6000000),                     // per epoch max
+		EpochDuration:       epochDuration,                           // 1 week
+		HalvenPeriodInEpoch: 156, // 3 years
+		EpochsPerYear:       52,  // assuming 5 second block times
 	}
 }
 

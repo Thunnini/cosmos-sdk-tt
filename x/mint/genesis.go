@@ -11,11 +11,16 @@ func InitGenesis(ctx sdk.Context, keeper keeper.Keeper, ak types.AccountKeeper, 
 	keeper.SetMinter(ctx, data.Minter)
 	keeper.SetParams(ctx, data.Params)
 	ak.GetModuleAccount(ctx, types.ModuleName)
+	keeper.SetLastEpochTime(ctx, ctx.BlockTime())
+	keeper.SetEpochNum(ctx, data.CurrentEpoch)
+	keeper.SetLastHalvenEpochNum(ctx, data.HalvenStartedEpoch)
 }
 
 // ExportGenesis returns a GenesisState for a given context and keeper.
 func ExportGenesis(ctx sdk.Context, keeper keeper.Keeper) *types.GenesisState {
 	minter := keeper.GetMinter(ctx)
 	params := keeper.GetParams(ctx)
-	return types.NewGenesisState(minter, params)
+	curEpoch := keeper.GetEpochNum(ctx)
+	lastEpoch := keeper.GetLastHalvenEpochNum(ctx)
+	return types.NewGenesisState(minter, params, curEpoch, lastEpoch)
 }

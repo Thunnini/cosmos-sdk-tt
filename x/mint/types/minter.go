@@ -30,13 +30,13 @@ func ValidateMinter(minter Minter) error {
 
 // NextAnnualProvisions returns the annual provisions based on current total
 // supply and inflation rate.
-func (m Minter) NextAnnualProvisions(_ Params, totalSupply sdk.Int) sdk.Dec {
+func (m Minter) NextAnnualProvisions(_ Params) sdk.Dec {
 	return m.AnnualProvisions.QuoInt(sdk.NewInt(2))
 }
 
-// BlockProvision returns the provisions for a block based on the annual
+// EpochProvision returns the provisions for a block based on the annual
 // provisions rate.
-func (m Minter) BlockProvision(params Params) sdk.Coin {
+func (m Minter) EpochProvision(params Params) sdk.Coin {
 	provisionAmt := m.AnnualProvisions.QuoInt(sdk.NewInt(int64(params.EpochsPerYear)))
 	return sdk.NewCoin(params.MintDenom, provisionAmt.TruncateInt())
 }

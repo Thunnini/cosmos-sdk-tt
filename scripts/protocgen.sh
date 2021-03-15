@@ -35,7 +35,7 @@ $(find "$(pwd)/proto" -maxdepth 5 -name '*.proto')
 go mod tidy
 
 # generate codec/testdata proto code
-buf protoc -I "proto" -I "third_party/proto" -I "testutil/testdata" --gocosmos_out=plugins=interfacetype+grpc,\
+protoc -I "proto" -I "third_party/proto" -I "testutil/testdata" --gocosmos_out=plugins=interfacetype+grpc,\
 Mgoogle/protobuf/any.proto=github.com/cosmos/cosmos-sdk/codec/types:. ./testutil/testdata/*.proto
 
 # move proto files to the right places

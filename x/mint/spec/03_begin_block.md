@@ -43,12 +43,12 @@ NextAnnualProvisions(params Params, totalSupply sdk.Dec) (provisions sdk.Dec) {
 	return Inflation * totalSupply
 ```
 
-## BlockProvision
+## EpochProvision
 
 Calculate the provisions generated for each block based on current annual provisions. The provisions are then minted by the `mint` module's `ModuleMinterAccount` and then transferred to the `auth`'s `FeeCollector` `ModuleAccount`.
 
 ```
-BlockProvision(params Params) sdk.Coin {
+EpochProvision(params Params) sdk.Coin {
 	provisionAmt = AnnualProvisions/ params.EpochsPerYear
 	return sdk.NewCoin(params.MintDenom, provisionAmt.Truncate())
 ```

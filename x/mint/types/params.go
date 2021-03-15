@@ -26,14 +26,17 @@ func ParamKeyTable() paramtypes.KeyTable {
 }
 
 func NewParams(
-	mintDenom string, maxRewardPerEpoch, minRewardPerEpoch sdk.Dec, epochsPerYear uint64,
+	mintDenom string, annualProvisions, maxRewardPerEpoch, minRewardPerEpoch sdk.Dec, epochDuration time.Duration, halvenPeriodInEpoch, epochsPerYear uint64,
 ) Params {
 
 	return Params{
-		MintDenom:         mintDenom,
-		MaxRewardPerEpoch: maxRewardPerEpoch,
-		MinRewardPerEpoch: minRewardPerEpoch,
-		EpochsPerYear:     epochsPerYear,
+		MintDenom:           mintDenom,
+		AnnualProvisions:    annualProvisions,
+		MaxRewardPerEpoch:   maxRewardPerEpoch,
+		MinRewardPerEpoch:   minRewardPerEpoch,
+		EpochDuration:       epochDuration,
+		HalvenPeriodInEpoch: halvenPeriodInEpoch,
+		EpochsPerYear:       epochsPerYear,
 	}
 }
 
@@ -43,8 +46,8 @@ func DefaultParams() Params {
 	return Params{
 		MintDenom:           sdk.DefaultBondDenom,
 		AnnualProvisions:    sdk.NewDec(5000000).Mul(sdk.NewDec(52)), // yearly rewards
-		MinRewardPerEpoch:   sdk.NewDec(4000000),                     // per epoch min
 		MaxRewardPerEpoch:   sdk.NewDec(6000000),                     // per epoch max
+		MinRewardPerEpoch:   sdk.NewDec(4000000),                     // per epoch min
 		EpochDuration:       epochDuration,                           // 1 week
 		HalvenPeriodInEpoch: 156,                                     // 3 years
 		EpochsPerYear:       52,                                      // assuming 5 second block times
@@ -117,9 +120,6 @@ func validateMaxRewardPerEpoch(i interface{}) error {
 	if v.IsNegative() {
 		return fmt.Errorf("max inflation cannot be negative: %s", v)
 	}
-	if v.GT(sdk.OneDec()) {
-		return fmt.Errorf("max inflation too large: %s", v)
-	}
 
 	return nil
 }
@@ -132,9 +132,6 @@ func validateMinRewardPerEpoch(i interface{}) error {
 
 	if v.IsNegative() {
 		return fmt.Errorf("min inflation cannot be negative: %s", v)
-	}
-	if v.GT(sdk.OneDec()) {
-		return fmt.Errorf("min inflation too large: %s", v)
 	}
 
 	return nil

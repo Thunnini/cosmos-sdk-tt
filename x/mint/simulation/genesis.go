@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -14,8 +15,8 @@ import (
 
 // Simulation parameter constants
 const (
-	MaxRewardPerEpoch        = "inflation_max"
-	MinRewardPerEpoch        = "inflation_min"
+	MaxRewardPerEpoch = "inflation_max"
+	MinRewardPerEpoch = "inflation_min"
 )
 
 // GenInflation randomized Inflation
@@ -49,8 +50,10 @@ func RandomizedGenState(simState *module.SimulationState) {
 	)
 
 	mintDenom := sdk.DefaultBondDenom
+	annualProvisions := sdk.NewDec(500000)
+	epochDuration, _ := time.ParseDuration("168h") // 1 week
 	epochsPerYear := uint64(60 * 60 * 8766 / 5)
-	params := types.NewParams(mintDenom, maxRewardPerEpoch, minRewardPerEpoch, epochsPerYear)
+	params := types.NewParams(mintDenom, annualProvisions, maxRewardPerEpoch, minRewardPerEpoch, epochDuration, 156, epochsPerYear)
 
 	mintGenesis := types.NewGenesisState(types.InitialMinter(), params, 0, 0)
 

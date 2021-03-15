@@ -28,14 +28,13 @@ func BeginBlocker(ctx sdk.Context, k keeper.Keeper) {
 
 	if k.GetEpochNum(ctx) >= int64(k.GetParams(ctx).HalvenPeriodInEpoch)+k.GetLastHalvenEpochNum(ctx) {
 		// Halven the reward per halven period
-		totalStakingSupply := k.StakingTokenSupply(ctx)
-		minter.AnnualProvisions = minter.NextAnnualProvisions(params, totalStakingSupply)
+		minter.AnnualProvisions = minter.NextAnnualProvisions(params)
 		k.SetMinter(ctx, minter)
 		k.SetLastHalvenEpochNum(ctx, k.GetEpochNum(ctx))
 	}
 
 	// mint coins, update supply
-	mintedCoin := minter.BlockProvision(params)
+	mintedCoin := minter.EpochProvision(params)
 	mintedCoins := sdk.NewCoins(mintedCoin)
 
 	err := k.MintCoins(ctx, mintedCoins)

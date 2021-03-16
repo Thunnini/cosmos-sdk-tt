@@ -7163,7 +7163,8 @@ QueryParamsResponse is the response type for the Query/Params RPC method.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| `params` | [Params](#ibc.applications.transfer.v1.Params) |  | params defines the parameters of the module. |
+| `minter` | [Minter](#cosmos.mint.v1beta1.Minter) |  | minter is a space for holding current rewards information. |
+| `params` | [Params](#cosmos.mint.v1beta1.Params) |  | params defines all the paramaters of the module. |
 
 
 

@@ -4,6 +4,5 @@ package types
 const (
 	EventTypeMint = ModuleName
 
-	AttributeKeyBondedRatio      = "bonded_ratio"
 	AttributeKeyAnnualProvisions = "annual_provisions"
 )

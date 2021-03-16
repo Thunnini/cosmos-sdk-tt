@@ -6,7 +6,7 @@ order: 2
 
 ## Minter
 
-The minter is a space for holding current inflation information.
+The minter is a space for holding current rewards information.
 
  - Minter: `0x00 -> amino(minter)`
 

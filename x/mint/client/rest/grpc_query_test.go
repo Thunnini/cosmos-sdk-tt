@@ -5,6 +5,7 @@ package rest_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -34,9 +35,9 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	var mintData minttypes.GenesisState
 	s.Require().NoError(cfg.Codec.UnmarshalJSON(genesisState[minttypes.ModuleName], &mintData))
 
-	inflation := sdk.MustNewDecFromStr("1.0")
-	mintData.Params.MinRewardPerEpoch = inflation
-	mintData.Params.MaxRewardPerEpoch = inflation
+	rewards := sdk.MustNewDecFromStr("1.0")
+	mintData.Params.MinRewardPerEpoch = rewards
+	mintData.Params.MaxRewardPerEpoch = rewards
 
 	mintDataBz, err := cfg.Codec.MarshalJSON(&mintData)
 	s.Require().NoError(err)
@@ -71,8 +72,8 @@ func (s *IntegrationTestSuite) TestQueryGRPC() {
 			map[string]string{},
 			&minttypes.QueryParamsResponse{},
 			&minttypes.QueryParamsResponse{
-				Params: minttypes.NewParams("stake", sdk.NewDecWithPrec(13, 2), sdk.NewDecWithPrec(100, 2),
-					sdk.NewDec(1), sdk.NewDecWithPrec(67, 2), (60 * 60 * 8766 / 5)),
+				Params: minttypes.NewParams("stake", sdk.NewDec(500000), sdk.NewDec(100),
+					sdk.NewDec(100), time.Duration(604800), 156, uint64(60*60*8766/5)),
 			},
 		},
 		{

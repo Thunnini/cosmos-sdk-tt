@@ -4,7 +4,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// NewMinter returns a new Minter object with the given inflation and annual
+// NewMinter returns a new Minter object with the given annual
 // provisions values.
 func NewMinter(annualProvisions sdk.Dec) Minter {
 	return Minter{
@@ -12,13 +12,12 @@ func NewMinter(annualProvisions sdk.Dec) Minter {
 	}
 }
 
-// InitialMinter returns an initial Minter object with a given inflation value.
+// InitialMinter returns an initial Minter object
 func InitialMinter() Minter {
 	return NewMinter(sdk.NewDec(0))
 }
 
 // DefaultInitialMinter returns a default initial Minter object for a new chain
-// which uses an inflation rate of 13%.
 func DefaultInitialMinter() Minter {
 	return InitialMinter()
 }
@@ -28,8 +27,7 @@ func ValidateMinter(minter Minter) error {
 	return nil
 }
 
-// NextAnnualProvisions returns the annual provisions based on current total
-// supply and inflation rate.
+// NextAnnualProvisions returns the annual provisions
 func (m Minter) NextAnnualProvisions(_ Params) sdk.Dec {
 	return m.AnnualProvisions.QuoInt(sdk.NewInt(2))
 }

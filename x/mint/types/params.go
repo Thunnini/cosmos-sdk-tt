@@ -70,7 +70,7 @@ func (p Params) Validate() error {
 	}
 	if p.MaxRewardPerEpoch.LT(p.MinRewardPerEpoch) {
 		return fmt.Errorf(
-			"max inflation (%s) must be greater than or equal to min inflation (%s)",
+			"max rewards (%s) must be greater than or equal to min rewards (%s)",
 			p.MaxRewardPerEpoch, p.MinRewardPerEpoch,
 		)
 	}
@@ -118,7 +118,7 @@ func validateMaxRewardPerEpoch(i interface{}) error {
 	}
 
 	if v.IsNegative() {
-		return fmt.Errorf("max inflation cannot be negative: %s", v)
+		return fmt.Errorf("max rewards cannot be negative: %s", v)
 	}
 
 	return nil
@@ -131,7 +131,7 @@ func validateMinRewardPerEpoch(i interface{}) error {
 	}
 
 	if v.IsNegative() {
-		return fmt.Errorf("min inflation cannot be negative: %s", v)
+		return fmt.Errorf("min rewards cannot be negative: %s", v)
 	}
 
 	return nil

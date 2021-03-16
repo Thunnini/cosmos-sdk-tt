@@ -5103,7 +5103,7 @@ GenesisState defines the mint module's genesis state.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| `minter` | [Minter](#cosmos.mint.v1beta1.Minter) |  | minter is a space for holding current inflation information. |
+| `minter` | [Minter](#cosmos.mint.v1beta1.Minter) |  | minter is a space for holding current rewards information. |
 | `params` | [Params](#cosmos.mint.v1beta1.Params) |  | params defines all the paramaters of the module. |
 
 

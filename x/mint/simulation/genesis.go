@@ -15,16 +15,11 @@ import (
 
 // Simulation parameter constants
 const (
-	MaxRewardPerEpoch = "inflation_max"
-	MinRewardPerEpoch = "inflation_min"
+	MaxRewardPerEpoch = "max_reward_per_epoch"
+	MinRewardPerEpoch = "min_reward_per_epoch"
 )
 
-// GenInflation randomized Inflation
-func GenInflation(r *rand.Rand) sdk.Dec {
-	return sdk.NewDecWithPrec(int64(r.Intn(99)), 2)
-}
-
-// GenMaxRewardPerEpoch randomized InflationMax
+// GenMaxRewardPerEpoch randomized MaxRewardPerEpoch
 func GenMaxRewardPerEpoch(r *rand.Rand) sdk.Dec {
 	return sdk.NewDecWithPrec(20, 2)
 }

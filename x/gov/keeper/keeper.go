@@ -26,6 +26,9 @@ type Keeper struct {
 	// The (unexposed) keys used to access the stores from the Context.
 	storeKey sdk.StoreKey
 
+	// GovHooks
+	hooks types.GovHooks
+
 	// The codec codec for binary encoding/decoding.
 	cdc codec.BinaryMarshaler
 
@@ -69,6 +72,17 @@ func NewKeeper(
 // Logger returns a module-specific logger.
 func (keeper Keeper) Logger(ctx sdk.Context) log.Logger {
 	return ctx.Logger().With("module", "x/"+types.ModuleName)
+}
+
+// Set the validator hooks
+func (k *Keeper) SetHooks(sh types.GovHooks) *Keeper {
+	if k.hooks != nil {
+		panic("cannot set validator hooks twice")
+	}
+
+	k.hooks = sh
+
+	return k
 }
 
 // Router returns the gov Keeper's Router

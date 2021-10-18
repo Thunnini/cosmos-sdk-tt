@@ -24,30 +24,30 @@ import (
 // keyring, where multisigs are amino-binary-encoded.
 //
 // ref: https://github.com/cosmos/cosmos-sdk/issues/8776
-type tmMultisig struct {
+type TmMultisig struct {
 	K       uint                 `json:"threshold"`
 	PubKeys []cryptotypes.PubKey `json:"pubkeys"`
 }
 
 // protoToTm converts a LegacyAminoPubKey into a tmMultisig.
-func protoToTm(protoPk *LegacyAminoPubKey) (tmMultisig, error) {
+func protoToTm(protoPk *LegacyAminoPubKey) (TmMultisig, error) {
 	var ok bool
 	pks := make([]cryptotypes.PubKey, len(protoPk.PubKeys))
 	for i, pk := range protoPk.PubKeys {
 		pks[i], ok = pk.GetCachedValue().(cryptotypes.PubKey)
 		if !ok {
-			return tmMultisig{}, sdkerrors.Wrapf(sdkerrors.ErrInvalidType, "expected %T, got %T", (cryptotypes.PubKey)(nil), pk.GetCachedValue())
+			return TmMultisig{}, sdkerrors.Wrapf(sdkerrors.ErrInvalidType, "expected %T, got %T", (cryptotypes.PubKey)(nil), pk.GetCachedValue())
 		}
 	}
 
-	return tmMultisig{
+	return TmMultisig{
 		K:       uint(protoPk.Threshold),
 		PubKeys: pks,
 	}, nil
 }
 
 // tmToProto converts a tmMultisig into a LegacyAminoPubKey.
-func tmToProto(tmPk tmMultisig) (*LegacyAminoPubKey, error) {
+func tmToProto(tmPk TmMultisig) (*LegacyAminoPubKey, error) {
 	var err error
 	pks := make([]*types.Any, len(tmPk.PubKeys))
 	for i, pk := range tmPk.PubKeys {
@@ -64,12 +64,12 @@ func tmToProto(tmPk tmMultisig) (*LegacyAminoPubKey, error) {
 }
 
 // MarshalAminoJSON overrides amino JSON unmarshaling.
-func (m LegacyAminoPubKey) MarshalAminoJSON() (tmMultisig, error) { //nolint:golint
+func (m LegacyAminoPubKey) MarshalAminoJSON() (TmMultisig, error) { //nolint:golint
 	return protoToTm(&m)
 }
 
 // UnmarshalAminoJSON overrides amino JSON unmarshaling.
-func (m *LegacyAminoPubKey) UnmarshalAminoJSON(tmPk tmMultisig) error {
+func (m *LegacyAminoPubKey) UnmarshalAminoJSON(tmPk TmMultisig) error {
 	protoPk, err := tmToProto(tmPk)
 	if err != nil {
 		return err

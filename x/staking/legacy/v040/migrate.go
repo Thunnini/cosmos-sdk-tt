@@ -2,6 +2,7 @@ package v040
 
 import (
 	"fmt"
+
 	staking "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"

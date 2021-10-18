@@ -373,16 +373,16 @@ func getProofFromTree(tree *iavl.MutableTree, key []byte, exists bool) *tmcrypto
 }
 
 type iavlIterator struct {
-  *iavl.Iterator
+	*iavl.Iterator
 }
 
 var _ types.Iterator = (*iavlIterator)(nil)
 
 func newIAVLIterator(tree *iavl.ImmutableTree, start, end []byte, ascending bool) *iavlIterator {
-  iter := &iavlIterator {
-    Iterator: tree.Iterator(start, end, ascending),
-  }
-  return iter
+	iter := &iavlIterator{
+		Iterator: tree.Iterator(start, end, ascending),
+	}
+	return iter
 }
 
 //----------------------------------------
@@ -558,5 +558,4 @@ func (iter *iavlIterator) assertIsValid(unlockMutex bool) {
 		panic("invalid iterator")
 	}
 }
-*/
 */

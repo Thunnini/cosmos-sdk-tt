@@ -27,6 +27,7 @@ require (
 	github.com/improbable-eng/grpc-web v0.14.1
 	github.com/jhump/protoreflect v1.9.0
 	github.com/kr/text v0.2.0 // indirect
+	github.com/lib/pq v1.10.2 // indirect
 	github.com/magiconair/properties v1.8.5
 	github.com/mattn/go-isatty v0.0.14
 	github.com/onsi/ginkgo v1.16.4 // indirect
@@ -46,7 +47,7 @@ require (
 	github.com/tendermint/btcd v0.1.1
 	github.com/tendermint/crypto v0.0.0-20191022145703-50d29ede1e15
 	github.com/tendermint/go-amino v0.16.0
-	github.com/tendermint/tendermint v0.34.13
+	github.com/tendermint/tendermint v0.34.14
 	github.com/tendermint/tm-db v0.6.4
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c
@@ -130,3 +131,7 @@ replace github.com/tendermint/tm-db => github.com/osmosis-labs/tm-db v0.6.5-0.20
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 replace github.com/99designs/keyring => github.com/cosmos/keyring v1.1.7-0.20210622111912-ef00f8ac3d76
+
+// Fix upstream GHSA-h395-qcrw-5vmq vulnerability.
+// TODO Remove it: https://github.com/cosmos/cosmos-sdk/issues/10409
+replace github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.7.0

@@ -30,6 +30,7 @@ package module
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	"github.com/gorilla/mux"
@@ -418,8 +419,8 @@ func (m Manager) RunMigrations(ctx sdk.Context, cfg Configurator, fromVM Version
 		// 2. An existing chain is upgrading to v043 for the first time. In this case,
 		// all modules have yet to be added to x/upgrade's VersionMap store.
 		if exists {
-			ctx.Logger().Info("Running migration for module: %s, fromVersion %s, toVersion %s",
-				moduleName, fromVersion, toVersion)
+			ctx.Logger().Info(fmt.Sprintf("Running migration for module: %s, fromVersion %d, toVersion %d",
+				moduleName, fromVersion, toVersion))
 			err := c.runModuleMigrations(ctx, moduleName, fromVersion, toVersion)
 			if err != nil {
 				return nil, err
@@ -431,8 +432,8 @@ func (m Manager) RunMigrations(ctx sdk.Context, cfg Configurator, fromVM Version
 				// is configurator (the struct).
 				return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidType, "expected %T, got %T", configurator{}, cfg)
 			}
-			ctx.Logger().Info("Running migration for module: %s, InitGenesis (on default genesis) toVersion %s",
-				moduleName, toVersion)
+			ctx.Logger().Info(fmt.Sprintf("Running migration for module: %s, InitGenesis (on default genesis) toVersion %d",
+				moduleName, toVersion))
 
 			moduleValUpdates := module.InitGenesis(ctx, cfgtor.cdc, module.DefaultGenesis(cfgtor.cdc))
 			// The module manager assumes only one module will update the

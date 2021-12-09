@@ -2,7 +2,6 @@ package cachekv
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"reflect"
 	"sort"
@@ -180,9 +179,7 @@ func (store *Store) iterator(start, end []byte, ascending bool) types.Iterator {
 		parent = store.parent.ReverseIterator(start, end)
 	}
 
-	fmt.Println("beginning dirty items")
 	store.dirtyItems(start, end)
-	fmt.Println("end dirty items")
 	cache = newMemIterator(start, end, store.sortedCache, store.deleted, ascending)
 
 	return newCacheMergeIterator(parent, cache, ascending)

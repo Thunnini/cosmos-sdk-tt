@@ -15,7 +15,10 @@ var (
 
 	// DefaultCommitKVStoreCacheSize defines the persistent ARC cache size for a
 	// CommitKVStoreCache.
-	DefaultCommitKVStoreCacheSize uint = 10000
+	// This value has been yolo-bumped per our (Notional's) best-performing setup for Relaying and validating.
+	// https://github.com/notional-labs/cosmos-sdk/commit/a8c81adde57aa6c610f5776389885602dad53364
+	// We are not entirely sure what we are adjusing in this variable, but it did make things more smoooooth.
+	DefaultCommitKVStoreCacheSize uint = 100000
 )
 
 type (

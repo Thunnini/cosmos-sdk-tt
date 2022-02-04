@@ -173,8 +173,7 @@ func (st *Store) Set(key, value []byte) {
 // Implements types.KVStore.
 func (st *Store) Get(key []byte) []byte {
 	defer telemetry.MeasureSince(time.Now(), "store", "iavl", "get")
-	_, value := st.tree.Get(key)
-	return value
+	return st.tree.Get(key)
 }
 
 // Implements types.KVStore.
@@ -296,7 +295,7 @@ func (st *Store) Query(req abci.RequestQuery) (res abci.ResponseQuery) {
 			break
 		}
 
-		_, res.Value = tree.GetVersioned(key, res.Height)
+		res.Value = tree.GetVersioned(key, res.Height)
 		if !req.Prove {
 			break
 		}
@@ -376,7 +375,7 @@ func getProofFromTree(tree *iavl.MutableTree, key []byte, exists bool) *tmcrypto
 
 // Implements types.Iterator.
 type iavlIterator struct {
-	*iavl.Iterator
+	dbm.Iterator
 }
 
 var _ types.Iterator = (*iavlIterator)(nil)

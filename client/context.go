@@ -3,6 +3,7 @@ package client
 import (
 	"bufio"
 	"encoding/json"
+	"google.golang.org/grpc"
 	"io"
 	"os"
 
@@ -25,6 +26,7 @@ import (
 type Context struct {
 	FromAddress sdk.AccAddress
 	Client      rpcclient.Client
+	GRPCClient  *grpc.ClientConn
 	ChainID     string
 	// Deprecated: Codec codec will be changed to Codec: codec.Codec
 	JSONCodec         codec.JSONCodec
@@ -137,6 +139,13 @@ func (ctx Context) WithHeight(height int64) Context {
 // instance.
 func (ctx Context) WithClient(client rpcclient.Client) Context {
 	ctx.Client = client
+	return ctx
+}
+
+// WithGRPCClient returns a copy of the context with an updated GRPC client
+// instance.
+func (ctx Context) WithGRPCClient(grpcClient *grpc.ClientConn) Context {
+	ctx.GRPCClient = grpcClient
 	return ctx
 }
 

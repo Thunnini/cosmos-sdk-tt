@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"syscall"
@@ -340,10 +341,22 @@ func TrapSignal(cleanupFunc func()) {
 }
 
 // WaitForQuitSignals waits for SIGINT and SIGTERM and returns.
-func WaitForQuitSignals() ErrorCode {
+func WaitForQuitSignals(logger tmlog.Logger) ErrorCode {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-sigs
+
+	logger.Info("Shutdown signal received", "signal", sig)
+
+	heapProfilePath := "/tmp/heap_profile.out"
+	logger.Info("Taking heap profile at", "path", heapProfilePath)
+	heapFile, _ := os.Create(heapProfilePath)
+	pprof.WriteHeapProfile(heapFile)
+
+	logger.Info("heap profile was written at", "path", heapProfilePath)
+
+	defer heapFile.Close()
+
 	return ErrorCode{Code: int(sig.(syscall.Signal)) + 128}
 }
 

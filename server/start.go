@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/pprof"
+	"runtime/trace"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -33,6 +34,8 @@ import (
 	servergrpc "github.com/cosmos/cosmos-sdk/server/grpc"
 	"github.com/cosmos/cosmos-sdk/server/types"
 	storetypes "github.com/cosmos/cosmos-sdk/store/types"
+
+	_ "net/http/pprof"
 )
 
 // Tendermint full-node start flags
@@ -207,7 +210,7 @@ func startStandAlone(ctx *Context, appCreator types.AppCreator) error {
 	}()
 
 	// Wait for SIGINT or SIGTERM signal
-	return WaitForQuitSignals()
+	return WaitForQuitSignals(ctx.Logger)
 }
 
 // legacyAminoCdc is used for the legacy REST API
@@ -216,23 +219,48 @@ func startInProcess(ctx *Context, clientCtx client.Context, appCreator types.App
 	home := cfg.RootDir
 	var cpuProfileCleanup func()
 
-	if cpuProfile := ctx.Viper.GetString(flagCPUProfile); cpuProfile != "" {
-		f, err := os.Create(cpuProfile)
-		if err != nil {
-			return err
-		}
-
-		ctx.Logger.Info("starting CPU profiler", "profile", cpuProfile)
-		if err := pprof.StartCPUProfile(f); err != nil {
-			return err
-		}
-
-		cpuProfileCleanup = func() {
-			ctx.Logger.Info("stopping CPU profiler", "profile", cpuProfile)
-			pprof.StopCPUProfile()
-			f.Close()
-		}
+	// profile CPU
+	cpuProfilePath := "/tmp/cpu_profile.out"
+	f, err := os.Create(cpuProfilePath)
+	if err != nil {
+		return err
 	}
+
+	ctx.Logger.Info("starting CPU profiler", "profile", cpuProfilePath)
+	if err := pprof.StartCPUProfile(f); err != nil {
+		return err
+	}
+
+	cpuProfileCleanup = func() {
+		ctx.Logger.Info("stopping CPU profiler", "profile", cpuProfilePath)
+		pprof.StopCPUProfile()
+		f.Close()
+	}
+
+	defer cpuProfileCleanup()
+
+	// Trace
+	tracePath := "/tmp/trace_profile.out"
+	traceFile, err := os.Create(tracePath)
+	if err != nil {
+		return err
+	}
+	ctx.Logger.Info("starting Trace", "profile", cpuProfilePath)
+	if err := trace.Start(traceFile); err != nil {
+		ctx.Logger.Error("failed to start trace", "profile", tracePath)
+		
+	}
+	defer func() {
+		ctx.Logger.Info("stopping trace", "profile", tracePath)
+		trace.Stop()
+		traceFile.Close()
+	}()
+
+	go func() {
+		address := "localhost:6060"
+		ctx.Logger.Info("Starting pprof server", "laddr", address)
+		ctx.Logger.Error("pprof server error", "err", http.ListenAndServe(address, nil))
+	}()
 
 	traceWriterFile := ctx.Viper.GetString(flagTraceStore)
 	db, err := openDB(home)
@@ -396,5 +424,5 @@ func startInProcess(ctx *Context, clientCtx client.Context, appCreator types.App
 	}()
 
 	// Wait for SIGINT or SIGTERM signal
-	return WaitForQuitSignals()
+	return WaitForQuitSignals(ctx.Logger)
 }

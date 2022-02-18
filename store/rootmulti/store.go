@@ -879,9 +879,9 @@ func (rs *Store) loadCommitStoreFromParams(key types.StoreKey, id types.CommitID
 		var err error
 
 		if params.initialVersion == 0 {
-			store, err = iavl.LoadStore(db, rs.logger, id, rs.lazyLoading)
+			store, err = iavl.LoadStore(db, rs.logger, key, id, rs.lazyLoading)
 		} else {
-			store, err = iavl.LoadStoreWithInitialVersion(db, rs.logger, id, rs.lazyLoading, params.initialVersion)
+			store, err = iavl.LoadStoreWithInitialVersion(db, rs.logger, key, id, rs.lazyLoading, params.initialVersion)
 		}
 
 		if err != nil {

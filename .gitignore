@@ -5,29 +5,36 @@
 *.swl
 *.swm
 *.swn
-.vscode
-.idea
 *.pyc
+
+# private files
+private[.-]*
+private
 
 # Build
 vendor
 build
-tools/bin/*
-examples/build/*
 docs/_build
 docs/tutorial
+docs/node_modules
+docs/modules
+docs/run-node/cosmovisor.md
 dist
 tools-stamp
+buf-stamp
+artifacts
 
 # Data - ideally these don't exist
 baseapp/data/*
 client/lcd/keys/*
-mytestnet
+.testnets
 
 # Testing
 coverage.txt
 profile.out
 sim_log_file
+x/genutil/config
+x/genutil/data
 
 # Vagrant
 .vagrant/
@@ -36,8 +43,10 @@ sim_log_file
 vagrant
 
 # IDE
-.idea/
+.idea
 *.iml
+.dir-locals.el
+.vscode
 
 # Graphviz
 dependency-graph.png
@@ -46,3 +55,5 @@ dependency-graph.png
 *.aux
 *.out
 *.synctex.gz
+/x/genutil/config/priv_validator_key.json
+/x/genutil/data/priv_validator_state.json

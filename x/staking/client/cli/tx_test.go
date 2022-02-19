@@ -3,82 +3,92 @@ package cli
 import (
 	"testing"
 
-	"github.com/spf13/viper"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
-	tcmd "github.com/tendermint/tendermint/cmd/tendermint/commands"
-	cfg "github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/libs/log"
 
-	"github.com/cosmos/cosmos-sdk/server"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 )
 
-func TestPrepareFlagsForTxCreateValidator(t *testing.T) {
-	defer server.SetupViper(t)()
-	config, err := tcmd.ParseConfig()
-	require.Nil(t, err)
-	logger := log.NewNopLogger()
-	ctx := server.NewContext(config, logger)
-
-	valPubKey, _ := sdk.GetConsPubKeyBech32("cosmosvalconspub1zcjduepq7jsrkl9fgqk0wj3ahmfr8pgxj6vakj2wzn656s8pehh0zhv2w5as5gd80a")
-
-	type args struct {
-		config    *cfg.Config
-		nodeID    string
-		chainID   string
-		valPubKey crypto.PubKey
+func TestPrepareConfigForTxCreateValidator(t *testing.T) {
+	chainID := "chainID"
+	ip := "1.1.1.1"
+	nodeID := "nodeID"
+	privKey := ed25519.GenPrivKey()
+	valPubKey := privKey.PubKey()
+	moniker := "DefaultMoniker"
+	mkTxValCfg := func(amount, commission, commissionMax, commissionMaxChange, minSelfDelegation string) TxCreateValidatorConfig {
+		return TxCreateValidatorConfig{
+			IP:                      ip,
+			ChainID:                 chainID,
+			NodeID:                  nodeID,
+			PubKey:                  valPubKey,
+			Moniker:                 moniker,
+			Amount:                  amount,
+			CommissionRate:          commission,
+			CommissionMaxRate:       commissionMax,
+			CommissionMaxChangeRate: commissionMaxChange,
+			MinSelfDelegation:       minSelfDelegation,
+		}
 	}
 
-	type extraParams struct {
-		amount                  string
-		commissionRate          string
-		commissionMaxRate       string
-		commissionMaxChangeRate string
-		minSelfDelegation       string
+	tests := []struct {
+		name        string
+		fsModify    func(fs *pflag.FlagSet)
+		expectedCfg TxCreateValidatorConfig
+	}{
+		{
+			name: "all defaults",
+			fsModify: func(fs *pflag.FlagSet) {
+				return
+			},
+			expectedCfg: mkTxValCfg(defaultAmount, "0.1", "0.2", "0.01", "1"),
+		}, {
+			name: "Custom amount",
+			fsModify: func(fs *pflag.FlagSet) {
+				fs.Set(FlagAmount, "2000stake")
+			},
+			expectedCfg: mkTxValCfg("2000stake", "0.1", "0.2", "0.01", "1"),
+		}, {
+			name: "Custom commission rate",
+			fsModify: func(fs *pflag.FlagSet) {
+				fs.Set(FlagCommissionRate, "0.54")
+			},
+			expectedCfg: mkTxValCfg(defaultAmount, "0.54", "0.2", "0.01", "1"),
+		}, {
+			name: "Custom commission max rate",
+			fsModify: func(fs *pflag.FlagSet) {
+				fs.Set(FlagCommissionMaxRate, "0.89")
+			},
+			expectedCfg: mkTxValCfg(defaultAmount, "0.1", "0.89", "0.01", "1"),
+		}, {
+			name: "Custom commission max change rate",
+			fsModify: func(fs *pflag.FlagSet) {
+				fs.Set(FlagCommissionMaxChangeRate, "0.55")
+			},
+			expectedCfg: mkTxValCfg(defaultAmount, "0.1", "0.2", "0.55", "1"),
+		},
+		{
+			name: "Custom min self delegations",
+			fsModify: func(fs *pflag.FlagSet) {
+				fs.Set(FlagMinSelfDelegation, "0.33")
+			},
+			expectedCfg: mkTxValCfg(defaultAmount, "0.1", "0.2", "0.01", "0.33"),
+		},
 	}
 
-	type testcase struct {
-		name string
-		args args
-	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			fs, _ := CreateValidatorMsgFlagSet(ip)
+			fs.String(flags.FlagName, "", "name of private key with which to sign the gentx")
 
-	runTest := func(t *testing.T, tt testcase, params extraParams) {
-		PrepareFlagsForTxCreateValidator(tt.args.config, tt.args.nodeID,
-			tt.args.chainID, tt.args.valPubKey)
+			tc.fsModify(fs)
 
-		require.Equal(t, params.amount, viper.GetString(FlagAmount))
-		require.Equal(t, params.commissionRate, viper.GetString(FlagCommissionRate))
-		require.Equal(t, params.commissionMaxRate, viper.GetString(FlagCommissionMaxRate))
-		require.Equal(t, params.commissionMaxChangeRate, viper.GetString(FlagCommissionMaxChangeRate))
-		require.Equal(t, params.minSelfDelegation, viper.GetString(FlagMinSelfDelegation))
-	}
+			cvCfg, err := PrepareConfigForTxCreateValidator(fs, moniker, nodeID, chainID, valPubKey)
+			require.NoError(t, err)
 
-	tests := []testcase{
-		{"No parameters", args{ctx.Config, "X", "chainId", valPubKey}},
-	}
-
-	defaultParams := extraParams{
-		defaultAmount,
-		defaultCommissionRate,
-		defaultCommissionMaxRate,
-		defaultCommissionMaxChangeRate,
-		defaultMinSelfDelegation,
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Run(tt.name, func(t *testing.T) { runTest(t, tt, defaultParams) })
+			require.Equal(t, tc.expectedCfg, cvCfg)
 		})
-	}
-
-	// Override default params
-	params := extraParams{"5stake", "1.0", "1.0", "1.0", "1.0"}
-	viper.Set(FlagAmount, params.amount)
-	viper.Set(FlagCommissionRate, params.commissionRate)
-	viper.Set(FlagCommissionMaxRate, params.commissionMaxRate)
-	viper.Set(FlagCommissionMaxChangeRate, params.commissionMaxChangeRate)
-	viper.Set(FlagMinSelfDelegation, params.minSelfDelegation)
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) { runTest(t, tt, params) })
 	}
 }

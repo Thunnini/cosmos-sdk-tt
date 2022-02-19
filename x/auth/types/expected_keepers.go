@@ -2,12 +2,10 @@ package types
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/supply/exported"
 )
 
-// SupplyKeeper defines the expected supply Keeper (noalias)
-type SupplyKeeper interface {
-	SendCoinsFromAccountToModule(ctx sdk.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) sdk.Error
-	GetModuleAccount(ctx sdk.Context, moduleName string) exported.ModuleAccountI
-	GetModuleAddress(moduleName string) sdk.AccAddress
+// BankKeeper defines the contract needed for supply related APIs (noalias)
+type BankKeeper interface {
+	SendCoins(ctx sdk.Context, from, to sdk.AccAddress, amt sdk.Coins) error
+	SendCoinsFromAccountToModule(ctx sdk.Context, senderAddr sdk.AccAddress, recipientModule string, amt sdk.Coins) error
 }

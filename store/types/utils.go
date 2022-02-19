@@ -3,7 +3,7 @@ package types
 import (
 	"bytes"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/cosmos/cosmos-sdk/types/kv"
 )
 
 // Iterator over all the keys with a certain prefix in ascending order
@@ -17,39 +17,49 @@ func KVStoreReversePrefixIterator(kvs KVStore, prefix []byte) Iterator {
 }
 
 // DiffKVStores compares two KVstores and returns all the key/value pairs
-// that differ from one another. It also skips value comparison for a set of provided prefixes
-func DiffKVStores(a KVStore, b KVStore, prefixesToSkip [][]byte) (kvs []cmn.KVPair) {
+// that differ from one another. It also skips value comparison for a set of provided prefixes.
+func DiffKVStores(a KVStore, b KVStore, prefixesToSkip [][]byte) (kvAs, kvBs []kv.Pair) {
 	iterA := a.Iterator(nil, nil)
+
+	defer iterA.Close()
+
 	iterB := b.Iterator(nil, nil)
+
+	defer iterB.Close()
 
 	for {
 		if !iterA.Valid() && !iterB.Valid() {
-			break
+			return kvAs, kvBs
 		}
-		var kvA, kvB cmn.KVPair
+
+		var kvA, kvB kv.Pair
 		if iterA.Valid() {
-			kvA = cmn.KVPair{Key: iterA.Key(), Value: iterA.Value()}
+			kvA = kv.Pair{Key: iterA.Key(), Value: iterA.Value()}
+
 			iterA.Next()
 		}
+
 		if iterB.Valid() {
-			kvB = cmn.KVPair{Key: iterB.Key(), Value: iterB.Value()}
+			kvB = kv.Pair{Key: iterB.Key(), Value: iterB.Value()}
+
 			iterB.Next()
 		}
-		if !bytes.Equal(kvA.Key, kvB.Key) {
-			kvs = append(kvs, []cmn.KVPair{kvA, kvB}...)
-		}
+
 		compareValue := true
+
 		for _, prefix := range prefixesToSkip {
 			// Skip value comparison if we matched a prefix
-			if bytes.Equal(kvA.Key[:len(prefix)], prefix) {
+			if bytes.HasPrefix(kvA.Key, prefix) || bytes.HasPrefix(kvB.Key, prefix) {
 				compareValue = false
+				break
 			}
 		}
-		if compareValue && !bytes.Equal(kvA.Value, kvB.Value) {
-			kvs = append(kvs, []cmn.KVPair{kvA, kvB}...)
+
+		if compareValue && (!bytes.Equal(kvA.Key, kvB.Key) || !bytes.Equal(kvA.Value, kvB.Value)) {
+			kvAs = append(kvAs, kvA)
+			kvBs = append(kvBs, kvB)
 		}
 	}
-	return
 }
 
 // PrefixEndBytes returns the []byte that would end a
@@ -67,30 +77,21 @@ func PrefixEndBytes(prefix []byte) []byte {
 		if end[len(end)-1] != byte(255) {
 			end[len(end)-1]++
 			break
-		} else {
-			end = end[:len(end)-1]
-			if len(end) == 0 {
-				end = nil
-				break
-			}
+		}
+
+		end = end[:len(end)-1]
+
+		if len(end) == 0 {
+			end = nil
+			break
 		}
 	}
+
 	return end
 }
 
 // InclusiveEndBytes returns the []byte that would end a
 // range query such that the input would be included
-func InclusiveEndBytes(inclusiveBytes []byte) (exclusiveBytes []byte) {
-	exclusiveBytes = append(inclusiveBytes, byte(0x00))
-	return exclusiveBytes
-}
-
-//----------------------------------------
-func Cp(bz []byte) (ret []byte) {
-	if bz == nil {
-		return nil
-	}
-	ret = make([]byte, len(bz))
-	copy(ret, bz)
-	return ret
+func InclusiveEndBytes(inclusiveBytes []byte) []byte {
+	return append(inclusiveBytes, byte(0x00))
 }

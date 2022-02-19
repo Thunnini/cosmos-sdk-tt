@@ -2,10 +2,11 @@ package types
 
 import (
 	"encoding/binary"
-	"fmt"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/address"
+	"github.com/cosmos/cosmos-sdk/types/kv"
 )
 
 const (
@@ -20,9 +21,6 @@ const (
 
 	// QuerierRoute is the querier route for gov
 	QuerierRoute = ModuleName
-
-	// DefaultParamspace default name for parameter store
-	DefaultParamspace = ModuleName
 )
 
 // Keys for governance store
@@ -36,9 +34,9 @@ const (
 //
 // - 0x03: nextProposalID
 //
-// - 0x10<proposalID_Bytes><depositorAddr_Bytes>: Deposit
+// - 0x10<proposalID_Bytes><depositorAddrLen (1 Byte)><depositorAddr_Bytes>: Deposit
 //
-// - 0x20<proposalID_Bytes><voterAddr_Bytes>: Voter
+// - 0x20<proposalID_Bytes><voterAddrLen (1 Byte)><voterAddr_Bytes>: Voter
 var (
 	ProposalsKeyPrefix          = []byte{0x00}
 	ActiveProposalQueuePrefix   = []byte{0x01}
@@ -52,11 +50,21 @@ var (
 
 var lenTime = len(sdk.FormatTimeBytes(time.Now()))
 
+// GetProposalIDBytes returns the byte representation of the proposalID
+func GetProposalIDBytes(proposalID uint64) (proposalIDBz []byte) {
+	proposalIDBz = make([]byte, 8)
+	binary.BigEndian.PutUint64(proposalIDBz, proposalID)
+	return
+}
+
+// GetProposalIDFromBytes returns proposalID in uint64 format from a byte array
+func GetProposalIDFromBytes(bz []byte) (proposalID uint64) {
+	return binary.BigEndian.Uint64(bz)
+}
+
 // ProposalKey gets a specific proposal from the store
 func ProposalKey(proposalID uint64) []byte {
-	bz := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bz, proposalID)
-	return append(ProposalsKeyPrefix, bz...)
+	return append(ProposalsKeyPrefix, GetProposalIDBytes(proposalID)...)
 }
 
 // ActiveProposalByTimeKey gets the active proposal queue key by endTime
@@ -66,10 +74,7 @@ func ActiveProposalByTimeKey(endTime time.Time) []byte {
 
 // ActiveProposalQueueKey returns the key for a proposalID in the activeProposalQueue
 func ActiveProposalQueueKey(proposalID uint64, endTime time.Time) []byte {
-	bz := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bz, proposalID)
-
-	return append(ActiveProposalByTimeKey(endTime), bz...)
+	return append(ActiveProposalByTimeKey(endTime), GetProposalIDBytes(proposalID)...)
 }
 
 // InactiveProposalByTimeKey gets the inactive proposal queue key by endTime
@@ -79,45 +84,36 @@ func InactiveProposalByTimeKey(endTime time.Time) []byte {
 
 // InactiveProposalQueueKey returns the key for a proposalID in the inactiveProposalQueue
 func InactiveProposalQueueKey(proposalID uint64, endTime time.Time) []byte {
-	bz := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bz, proposalID)
-
-	return append(InactiveProposalByTimeKey(endTime), bz...)
+	return append(InactiveProposalByTimeKey(endTime), GetProposalIDBytes(proposalID)...)
 }
 
 // DepositsKey gets the first part of the deposits key based on the proposalID
 func DepositsKey(proposalID uint64) []byte {
-	bz := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bz, proposalID)
-	return append(DepositsKeyPrefix, bz...)
+	return append(DepositsKeyPrefix, GetProposalIDBytes(proposalID)...)
 }
 
 // DepositKey key of a specific deposit from the store
 func DepositKey(proposalID uint64, depositorAddr sdk.AccAddress) []byte {
-	return append(DepositsKey(proposalID), depositorAddr.Bytes()...)
+	return append(DepositsKey(proposalID), address.MustLengthPrefix(depositorAddr.Bytes())...)
 }
 
 // VotesKey gets the first part of the votes key based on the proposalID
 func VotesKey(proposalID uint64) []byte {
-	bz := make([]byte, 8)
-	binary.LittleEndian.PutUint64(bz, proposalID)
-	return append(VotesKeyPrefix, bz...)
+	return append(VotesKeyPrefix, GetProposalIDBytes(proposalID)...)
 }
 
 // VoteKey key of a specific vote from the store
 func VoteKey(proposalID uint64, voterAddr sdk.AccAddress) []byte {
-	return append(VotesKey(proposalID), voterAddr.Bytes()...)
+	return append(VotesKey(proposalID), address.MustLengthPrefix(voterAddr.Bytes())...)
 }
 
 // Split keys function; used for iterators
 
 // SplitProposalKey split the proposal key and returns the proposal id
 func SplitProposalKey(key []byte) (proposalID uint64) {
-	if len(key[1:]) != 8 {
-		panic(fmt.Sprintf("unexpected key length (%d ≠ 8)", len(key[1:])))
-	}
+	kv.AssertKeyLength(key[1:], 8)
 
-	return binary.LittleEndian.Uint64(key[1:])
+	return GetProposalIDFromBytes(key[1:])
 }
 
 // SplitActiveProposalQueueKey split the active proposal key and returns the proposal id and endTime
@@ -143,24 +139,23 @@ func SplitKeyVote(key []byte) (proposalID uint64, voterAddr sdk.AccAddress) {
 // private functions
 
 func splitKeyWithTime(key []byte) (proposalID uint64, endTime time.Time) {
-	if len(key[1:]) != 8+lenTime {
-		panic(fmt.Sprintf("unexpected key length (%d ≠ %d)", len(key[1:]), lenTime+8))
-	}
+	kv.AssertKeyLength(key[1:], 8+lenTime)
 
 	endTime, err := sdk.ParseTimeBytes(key[1 : 1+lenTime])
 	if err != nil {
 		panic(err)
 	}
-	proposalID = binary.LittleEndian.Uint64(key[1+lenTime:])
+
+	proposalID = GetProposalIDFromBytes(key[1+lenTime:])
 	return
 }
 
 func splitKeyWithAddress(key []byte) (proposalID uint64, addr sdk.AccAddress) {
-	if len(key[1:]) != 8+sdk.AddrLen {
-		panic(fmt.Sprintf("unexpected key length (%d ≠ %d)", len(key), 8+sdk.AddrLen))
-	}
-
-	proposalID = binary.LittleEndian.Uint64(key[1:9])
-	addr = sdk.AccAddress(key[9:])
+	// Both Vote and Deposit store keys are of format:
+	// <prefix (1 Byte)><proposalID (8 bytes)><addrLen (1 Byte)><addr_Bytes>
+	kv.AssertKeyAtLeastLength(key, 10)
+	proposalID = GetProposalIDFromBytes(key[1:9])
+	kv.AssertKeyAtLeastLength(key, 11)
+	addr = sdk.AccAddress(key[10:])
 	return
 }

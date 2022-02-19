@@ -1,131 +1,140 @@
-package gov
+package gov_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
 	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/libs/log"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	dbm "github.com/tendermint/tm-db"
+
+	"github.com/cosmos/cosmos-sdk/simapp"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	distributiontypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	"github.com/cosmos/cosmos-sdk/x/gov"
+	"github.com/cosmos/cosmos-sdk/x/gov/types"
+	"github.com/cosmos/cosmos-sdk/x/gov/types/v1beta2"
+	"github.com/cosmos/cosmos-sdk/x/staking"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-func TestEqualProposalID(t *testing.T) {
-	state1 := GenesisState{}
-	state2 := GenesisState{}
-	require.Equal(t, state1, state2)
-
-	// Proposals
-	state1.StartingProposalID = 1
-	require.NotEqual(t, state1, state2)
-	require.False(t, state1.Equal(state2))
-
-	state2.StartingProposalID = 1
-	require.Equal(t, state1, state2)
-	require.True(t, state1.Equal(state2))
-}
-
-func TestEqualProposals(t *testing.T) {
-	// Generate mock app and keepers
-	input := getMockApp(t, 2, GenesisState{}, nil)
-	SortAddresses(input.addrs)
-
-	header := abci.Header{Height: input.mApp.LastBlockHeight() + 1}
-	input.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
-
-	ctx := input.mApp.BaseApp.NewContext(false, abci.Header{})
-
-	// Submit two proposals
-	proposal := testProposal()
-	proposal1, err := input.keeper.SubmitProposal(ctx, proposal)
-	require.NoError(t, err)
-	proposal2, err := input.keeper.SubmitProposal(ctx, proposal)
-	require.NoError(t, err)
-
-	// They are similar but their IDs should be different
-	require.NotEqual(t, proposal1, proposal2)
-	require.False(t, ProposalEqual(proposal1, proposal2))
-
-	// Now create two genesis blocks
-	state1 := GenesisState{Proposals: []Proposal{proposal1}}
-	state2 := GenesisState{Proposals: []Proposal{proposal2}}
-	require.NotEqual(t, state1, state2)
-	require.False(t, state1.Equal(state2))
-
-	// Now make proposals identical by setting both IDs to 55
-	proposal1.ProposalID = 55
-	proposal2.ProposalID = 55
-	require.Equal(t, proposal1, proposal1)
-	require.True(t, ProposalEqual(proposal1, proposal2))
-
-	// Reassign proposals into state
-	state1.Proposals[0] = proposal1
-	state2.Proposals[0] = proposal2
-
-	// State should be identical now..
-	require.Equal(t, state1, state2)
-	require.True(t, state1.Equal(state2))
-}
-
 func TestImportExportQueues(t *testing.T) {
-	// Generate mock app and keepers
-	input := getMockApp(t, 2, GenesisState{}, nil)
-	SortAddresses(input.addrs)
+	app := simapp.Setup(t, false)
+	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
+	addrs := simapp.AddTestAddrs(app, ctx, 2, valTokens)
 
-	header := abci.Header{Height: input.mApp.LastBlockHeight() + 1}
-	input.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	SortAddresses(addrs)
 
-	ctx := input.mApp.BaseApp.NewContext(false, abci.Header{})
+	header := tmproto.Header{Height: app.LastBlockHeight() + 1}
+	app.BeginBlock(abci.RequestBeginBlock{Header: header})
 
+	ctx = app.BaseApp.NewContext(false, tmproto.Header{})
 	// Create two proposals, put the second into the voting period
-	proposal := testProposal()
-	proposal1, err := input.keeper.SubmitProposal(ctx, proposal)
+	proposal1, err := app.GovKeeper.SubmitProposal(ctx, []sdk.Msg{mkTestLegacyContent(t)}, nil)
 	require.NoError(t, err)
-	proposalID1 := proposal1.ProposalID
+	proposalID1 := proposal1.Id
 
-	proposal2, err := input.keeper.SubmitProposal(ctx, proposal)
+	proposal2, err := app.GovKeeper.SubmitProposal(ctx, []sdk.Msg{mkTestLegacyContent(t)}, nil)
 	require.NoError(t, err)
-	proposalID2 := proposal2.ProposalID
+	proposalID2 := proposal2.Id
 
-	err, votingStarted := input.keeper.AddDeposit(ctx, proposalID2, input.addrs[0], input.keeper.GetDepositParams(ctx).MinDeposit)
+	votingStarted, err := app.GovKeeper.AddDeposit(ctx, proposalID2, addrs[0], app.GovKeeper.GetDepositParams(ctx).MinDeposit)
 	require.NoError(t, err)
 	require.True(t, votingStarted)
 
-	proposal1, ok := input.keeper.GetProposal(ctx, proposalID1)
+	proposal1, ok := app.GovKeeper.GetProposal(ctx, proposalID1)
 	require.True(t, ok)
-	proposal2, ok = input.keeper.GetProposal(ctx, proposalID2)
+	proposal2, ok = app.GovKeeper.GetProposal(ctx, proposalID2)
 	require.True(t, ok)
-	require.True(t, proposal1.Status == StatusDepositPeriod)
-	require.True(t, proposal2.Status == StatusVotingPeriod)
+	require.True(t, proposal1.Status == v1beta2.StatusDepositPeriod)
+	require.True(t, proposal2.Status == v1beta2.StatusVotingPeriod)
 
-	genAccs := input.mApp.AccountKeeper.GetAllAccounts(ctx)
+	authGenState := auth.ExportGenesis(ctx, app.AccountKeeper)
+	bankGenState := app.BankKeeper.ExportGenesis(ctx)
+	stakingGenState := staking.ExportGenesis(ctx, app.StakingKeeper)
+	distributionGenState := app.DistrKeeper.ExportGenesis(ctx)
 
-	// Export the state and import it into a new Mock App
-	genState := ExportGenesis(ctx, input.keeper)
-	input2 := getMockApp(t, 2, genState, genAccs)
+	// export the state and import it into a new app
+	govGenState := gov.ExportGenesis(ctx, app.GovKeeper)
+	genesisState := simapp.NewDefaultGenesisState(app.AppCodec())
 
-	header = abci.Header{Height: input.mApp.LastBlockHeight() + 1}
-	input2.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	genesisState[authtypes.ModuleName] = app.AppCodec().MustMarshalJSON(authGenState)
+	genesisState[banktypes.ModuleName] = app.AppCodec().MustMarshalJSON(bankGenState)
+	genesisState[types.ModuleName] = app.AppCodec().MustMarshalJSON(govGenState)
+	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGenState)
+	genesisState[distributiontypes.ModuleName] = app.AppCodec().MustMarshalJSON(distributionGenState)
 
-	ctx2 := input2.mApp.BaseApp.NewContext(false, abci.Header{})
+	stateBytes, err := json.MarshalIndent(genesisState, "", " ")
+	if err != nil {
+		panic(err)
+	}
+
+	db := dbm.NewMemDB()
+	app2 := simapp.NewSimApp(log.NewNopLogger(), db, nil, true, map[int64]bool{}, simapp.DefaultNodeHome, 0, simapp.MakeTestEncodingConfig(), simapp.EmptyAppOptions{})
+
+	app2.InitChain(
+		abci.RequestInitChain{
+			Validators:      []abci.ValidatorUpdate{},
+			ConsensusParams: simapp.DefaultConsensusParams,
+			AppStateBytes:   stateBytes,
+		},
+	)
+
+	app2.Commit()
+	app2.BeginBlock(abci.RequestBeginBlock{Header: tmproto.Header{Height: app2.LastBlockHeight() + 1}})
+
+	header = tmproto.Header{Height: app2.LastBlockHeight() + 1}
+	app2.BeginBlock(abci.RequestBeginBlock{Header: header})
+
+	ctx2 := app2.BaseApp.NewContext(false, tmproto.Header{})
 
 	// Jump the time forward past the DepositPeriod and VotingPeriod
-	ctx2 = ctx2.WithBlockTime(ctx2.BlockHeader().Time.Add(input2.keeper.GetDepositParams(ctx2).MaxDepositPeriod).Add(input2.keeper.GetVotingParams(ctx2).VotingPeriod))
+	ctx2 = ctx2.WithBlockTime(ctx2.BlockHeader().Time.Add(*app2.GovKeeper.GetDepositParams(ctx2).MaxDepositPeriod).Add(*app2.GovKeeper.GetVotingParams(ctx2).VotingPeriod))
 
 	// Make sure that they are still in the DepositPeriod and VotingPeriod respectively
-	proposal1, ok = input2.keeper.GetProposal(ctx2, proposalID1)
+	proposal1, ok = app2.GovKeeper.GetProposal(ctx2, proposalID1)
 	require.True(t, ok)
-	proposal2, ok = input2.keeper.GetProposal(ctx2, proposalID2)
+	proposal2, ok = app2.GovKeeper.GetProposal(ctx2, proposalID2)
 	require.True(t, ok)
-	require.True(t, proposal1.Status == StatusDepositPeriod)
-	require.True(t, proposal2.Status == StatusVotingPeriod)
+	require.True(t, proposal1.Status == v1beta2.StatusDepositPeriod)
+	require.True(t, proposal2.Status == v1beta2.StatusVotingPeriod)
 
-	require.Equal(t, input2.keeper.GetDepositParams(ctx2).MinDeposit, input2.keeper.GetGovernanceAccount(ctx2).GetCoins())
+	macc := app2.GovKeeper.GetGovernanceAccount(ctx2)
+	require.Equal(t, sdk.Coins(app2.GovKeeper.GetDepositParams(ctx2).MinDeposit), app2.BankKeeper.GetAllBalances(ctx2, macc.GetAddress()))
 
 	// Run the endblocker. Check to make sure that proposal1 is removed from state, and proposal2 is finished VotingPeriod.
-	EndBlocker(ctx2, input2.keeper)
+	gov.EndBlocker(ctx2, app2.GovKeeper)
 
-	proposal1, ok = input2.keeper.GetProposal(ctx2, proposalID1)
+	proposal1, ok = app2.GovKeeper.GetProposal(ctx2, proposalID1)
 	require.False(t, ok)
-	proposal2, ok = input2.keeper.GetProposal(ctx2, proposalID2)
+
+	proposal2, ok = app2.GovKeeper.GetProposal(ctx2, proposalID2)
 	require.True(t, ok)
-	require.True(t, proposal2.Status == StatusRejected)
+	require.True(t, proposal2.Status == v1beta2.StatusRejected)
+}
+
+func TestImportExportQueues_ErrorUnconsistentState(t *testing.T) {
+	app := simapp.Setup(t, false)
+	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
+	require.Panics(t, func() {
+		gov.InitGenesis(ctx, app.AccountKeeper, app.BankKeeper, app.GovKeeper, &v1beta2.GenesisState{
+			Deposits: v1beta2.Deposits{
+				{
+					ProposalId: 1234,
+					Depositor:  "me",
+					Amount: sdk.Coins{
+						sdk.NewCoin(
+							"stake",
+							sdk.NewInt(1234),
+						),
+					},
+				},
+			},
+		})
+	})
 }

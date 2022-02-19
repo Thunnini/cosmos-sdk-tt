@@ -2,51 +2,26 @@ package simulation
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
-	"time"
+
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	"github.com/tendermint/tendermint/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/simulation"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-// nolint
 const (
 	// Minimum time per block
 	minTimePerBlock int64 = 10000 / 2
 
 	// Maximum time per block
 	maxTimePerBlock int64 = 10000
-
-	// Simulation parameter constants
-	SendEnabled              = "send_enabled"
-	MaxMemoChars             = "max_memo_characters"
-	TxSigLimit               = "tx_sig_limit"
-	TxSizeCostPerByte        = "tx_size_cost_per_byte"
-	SigVerifyCostED25519     = "sig_verify_cost_ed25519"
-	SigVerifyCostSECP256K1   = "sig_verify_cost_secp256k1"
-	DepositParamsMinDeposit  = "deposit_params_min_deposit"
-	VotingParamsVotingPeriod = "voting_params_voting_period"
-	TallyParamsQuorum        = "tally_params_quorum"
-	TallyParamsThreshold     = "tally_params_threshold"
-	TallyParamsVeto          = "tally_params_veto"
-	UnbondingTime            = "unbonding_time"
-	MaxValidators            = "max_validators"
-	SignedBlocksWindow       = "signed_blocks_window"
-	MinSignedPerWindow       = "min_signed_per_window"
-	DowntimeJailDuration     = "downtime_jail_duration"
-	SlashFractionDoubleSign  = "slash_fraction_double_sign"
-	SlashFractionDowntime    = "slash_fraction_downtime"
-	InflationRateChange      = "inflation_rate_change"
-	Inflation                = "inflation"
-	InflationMax             = "inflation_max"
-	InflationMin             = "inflation_min"
-	GoalBonded               = "goal_bonded"
-	CommunityTax             = "community_tax"
-	BaseProposerReward       = "base_proposer_reward"
-	BonusProposerReward      = "bonus_proposer_reward"
 )
 
-// TODO explain transitional matrix usage
+// TODO: explain transitional matrix usage
 var (
 	// Currently there are 3 different liveness types,
 	// fully online, spotty connection, offline.
@@ -63,128 +38,145 @@ var (
 		{15, 92, 1},
 		{0, 3, 99},
 	})
-
-	// ModuleParamSimulator defines module parameter value simulators. All
-	// values simulated should be within valid acceptable range for the given
-	// parameter.
-	ModuleParamSimulator = map[string]func(r *rand.Rand) interface{}{
-		SendEnabled: func(r *rand.Rand) interface{} {
-			return r.Int63n(2) == 0
-		},
-		MaxMemoChars: func(r *rand.Rand) interface{} {
-			return uint64(RandIntBetween(r, 100, 200))
-		},
-		TxSigLimit: func(r *rand.Rand) interface{} {
-			return uint64(r.Intn(7) + 1)
-		},
-		TxSizeCostPerByte: func(r *rand.Rand) interface{} {
-			return uint64(RandIntBetween(r, 5, 15))
-		},
-		SigVerifyCostED25519: func(r *rand.Rand) interface{} {
-			return uint64(RandIntBetween(r, 500, 1000))
-		},
-		SigVerifyCostSECP256K1: func(r *rand.Rand) interface{} {
-			return uint64(RandIntBetween(r, 500, 1000))
-		},
-		DepositParamsMinDeposit: func(r *rand.Rand) interface{} {
-			return sdk.Coins{sdk.NewInt64Coin(sdk.DefaultBondDenom, int64(RandIntBetween(r, 1, 1e3)))}
-		},
-		VotingParamsVotingPeriod: func(r *rand.Rand) interface{} {
-			return time.Duration(RandIntBetween(r, 1, 2*60*60*24*2)) * time.Second
-		},
-		TallyParamsQuorum: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(int64(RandIntBetween(r, 334, 500)), 3)
-		},
-		TallyParamsThreshold: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(int64(RandIntBetween(r, 450, 550)), 3)
-		},
-		TallyParamsVeto: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(int64(RandIntBetween(r, 250, 334)), 3)
-		},
-		UnbondingTime: func(r *rand.Rand) interface{} {
-			return time.Duration(RandIntBetween(r, 60, 60*60*24*3*2)) * time.Second
-		},
-		MaxValidators: func(r *rand.Rand) interface{} {
-			return uint16(r.Intn(250) + 1)
-		},
-		SignedBlocksWindow: func(r *rand.Rand) interface{} {
-			return int64(RandIntBetween(r, 10, 1000))
-		},
-		MinSignedPerWindow: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(int64(r.Intn(10)), 1)
-		},
-		DowntimeJailDuration: func(r *rand.Rand) interface{} {
-			return time.Duration(RandIntBetween(r, 60, 60*60*24)) * time.Second
-		},
-		SlashFractionDoubleSign: func(r *rand.Rand) interface{} {
-			return sdk.NewDec(1).Quo(sdk.NewDec(int64(r.Intn(50) + 1)))
-		},
-		SlashFractionDowntime: func(r *rand.Rand) interface{} {
-			return sdk.NewDec(1).Quo(sdk.NewDec(int64(r.Intn(200) + 1)))
-		},
-		InflationRateChange: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(int64(r.Intn(99)), 2)
-		},
-		Inflation: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(int64(r.Intn(99)), 2)
-		},
-		InflationMax: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(20, 2)
-		},
-		InflationMin: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(7, 2)
-		},
-		GoalBonded: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(67, 2)
-		},
-		CommunityTax: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(1, 2).Add(sdk.NewDecWithPrec(int64(r.Intn(30)), 2))
-		},
-		BaseProposerReward: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(1, 2).Add(sdk.NewDecWithPrec(int64(r.Intn(30)), 2))
-		},
-		BonusProposerReward: func(r *rand.Rand) interface{} {
-			return sdk.NewDecWithPrec(1, 2).Add(sdk.NewDecWithPrec(int64(r.Intn(30)), 2))
-		},
-	}
 )
 
-// TODO add description
-type (
-	AppParams      map[string]json.RawMessage
-	ParamSimulator func(r *rand.Rand)
-)
-
-// GetOrGenerate attempts to get a given parameter by key from the AppParams
-// object. If it exists, it'll be decoded and returned. Otherwise, the provided
-// ParamSimulator is used to generate a random value.
-func (sp AppParams) GetOrGenerate(cdc *codec.Codec, key string, ptr interface{}, r *rand.Rand, ps ParamSimulator) {
-	if v, ok := sp[key]; ok && v != nil {
-		cdc.MustUnmarshalJSON(v, ptr)
-		return
-	}
-
-	ps(r)
-}
-
-// Simulation parameters
+// Params define the parameters necessary for running the simulations
 type Params struct {
-	PastEvidenceFraction      float64
-	NumKeys                   int
-	EvidenceFraction          float64
-	InitialLivenessWeightings []int
-	LivenessTransitionMatrix  TransitionMatrix
-	BlockSizeTransitionMatrix TransitionMatrix
+	pastEvidenceFraction      float64
+	numKeys                   int
+	evidenceFraction          float64
+	initialLivenessWeightings []int
+	livenessTransitionMatrix  simulation.TransitionMatrix
+	blockSizeTransitionMatrix simulation.TransitionMatrix
 }
 
-// Return random simulation parameters
+func (p Params) PastEvidenceFraction() float64 {
+	return p.pastEvidenceFraction
+}
+
+func (p Params) NumKeys() int {
+	return p.numKeys
+}
+
+func (p Params) EvidenceFraction() float64 {
+	return p.evidenceFraction
+}
+
+func (p Params) InitialLivenessWeightings() []int {
+	return p.initialLivenessWeightings
+}
+
+func (p Params) LivenessTransitionMatrix() simulation.TransitionMatrix {
+	return p.livenessTransitionMatrix
+}
+
+func (p Params) BlockSizeTransitionMatrix() simulation.TransitionMatrix {
+	return p.blockSizeTransitionMatrix
+}
+
+// RandomParams returns random simulation parameters
 func RandomParams(r *rand.Rand) Params {
 	return Params{
-		PastEvidenceFraction:      r.Float64(),
-		NumKeys:                   RandIntBetween(r, 2, 250),
-		EvidenceFraction:          r.Float64(),
-		InitialLivenessWeightings: []int{RandIntBetween(r, 1, 80), r.Intn(10), r.Intn(10)},
-		LivenessTransitionMatrix:  defaultLivenessTransitionMatrix,
-		BlockSizeTransitionMatrix: defaultBlockSizeTransitionMatrix,
+		pastEvidenceFraction:      r.Float64(),
+		numKeys:                   simulation.RandIntBetween(r, 2, 2500), // number of accounts created for the simulation
+		evidenceFraction:          r.Float64(),
+		initialLivenessWeightings: []int{simulation.RandIntBetween(r, 1, 80), r.Intn(10), r.Intn(10)},
+		livenessTransitionMatrix:  defaultLivenessTransitionMatrix,
+		blockSizeTransitionMatrix: defaultBlockSizeTransitionMatrix,
 	}
+}
+
+// Param change proposals
+
+// ParamChange defines the object used for simulating parameter change proposals
+type ParamChange struct {
+	subspace string
+	key      string
+	simValue simulation.SimValFn
+}
+
+func (spc ParamChange) Subspace() string {
+	return spc.subspace
+}
+
+func (spc ParamChange) Key() string {
+	return spc.key
+}
+
+func (spc ParamChange) SimValue() simulation.SimValFn {
+	return spc.simValue
+}
+
+// NewSimParamChange creates a new ParamChange instance
+func NewSimParamChange(subspace, key string, simVal simulation.SimValFn) simulation.ParamChange {
+	return ParamChange{
+		subspace: subspace,
+		key:      key,
+		simValue: simVal,
+	}
+}
+
+// ComposedKey creates a new composed key for the param change proposal
+func (spc ParamChange) ComposedKey() string {
+	return spc.Subspace() + "/" + spc.Key()
+}
+
+// Proposal Contents
+
+// WeightedProposalContent defines a common struct for proposal contents defined by
+// external modules (i.e outside gov)
+type WeightedProposalContent struct {
+	appParamsKey       string                        // key used to retrieve the value of the weight from the simulation application params
+	defaultWeight      int                           // default weight
+	contentSimulatorFn simulation.ContentSimulatorFn // content simulator function
+}
+
+func NewWeightedProposalContent(appParamsKey string, defaultWeight int, contentSimulatorFn simulation.ContentSimulatorFn) simulation.WeightedProposalContent {
+	return &WeightedProposalContent{appParamsKey: appParamsKey, defaultWeight: defaultWeight, contentSimulatorFn: contentSimulatorFn}
+}
+
+func (w WeightedProposalContent) AppParamsKey() string {
+	return w.appParamsKey
+}
+
+func (w WeightedProposalContent) DefaultWeight() int {
+	return w.defaultWeight
+}
+
+func (w WeightedProposalContent) ContentSimulatorFn() simulation.ContentSimulatorFn {
+	return w.contentSimulatorFn
+}
+
+// Param change proposals
+
+// randomConsensusParams returns random simulation consensus parameters, it extracts the Evidence from the Staking genesis state.
+func randomConsensusParams(r *rand.Rand, appState json.RawMessage, cdc codec.JSONCodec) *tmproto.ConsensusParams {
+	var genesisState map[string]json.RawMessage
+	err := json.Unmarshal(appState, &genesisState)
+	if err != nil {
+		panic(err)
+	}
+
+	stakingGenesisState := stakingtypes.GetGenesisStateFromAppState(cdc, genesisState)
+	consensusParams := &tmproto.ConsensusParams{
+		Block: &tmproto.BlockParams{
+			MaxBytes: int64(simulation.RandIntBetween(r, 20000000, 30000000)),
+			MaxGas:   -1,
+		},
+		Validator: &tmproto.ValidatorParams{
+			PubKeyTypes: []string{types.ABCIPubKeyTypeEd25519},
+		},
+		Evidence: &tmproto.EvidenceParams{
+			MaxAgeNumBlocks: int64(stakingGenesisState.Params.UnbondingTime / AverageBlockTime),
+			MaxAgeDuration:  stakingGenesisState.Params.UnbondingTime,
+		},
+	}
+
+	bz, err := json.MarshalIndent(&consensusParams, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Selected randomly generated consensus parameters:\n%s\n", bz)
+
+	return consensusParams
 }

@@ -1,6 +1,8 @@
 package types
 
-import sdk "github.com/cosmos/cosmos-sdk/types"
+import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+)
 
 // querier keys
 const (
@@ -13,11 +15,6 @@ const (
 	QueryDelegatorValidators         = "delegator_validators"
 	QueryWithdrawAddr                = "withdraw_addr"
 	QueryCommunityPool               = "community_pool"
-
-	ParamCommunityTax        = "community_tax"
-	ParamBaseProposerReward  = "base_proposer_reward"
-	ParamBonusProposerReward = "bonus_proposer_reward"
-	ParamWithdrawAddrEnabled = "withdraw_addr_enabled"
 )
 
 // params for query 'custom/distr/validator_outstanding_rewards'

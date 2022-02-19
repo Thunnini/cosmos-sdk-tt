@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -8,7 +9,7 @@ import (
 	"math/big"
 )
 
-const maxBitLen = 255
+const maxBitLen = 256
 
 func newIntegerFromString(s string) (*big.Int, bool) {
 	return new(big.Int).SetString(s, 0)
@@ -36,6 +37,8 @@ func mod(i *big.Int, i2 *big.Int) *big.Int { return new(big.Int).Mod(i, i2) }
 
 func neg(i *big.Int) *big.Int { return new(big.Int).Neg(i) }
 
+func abs(i *big.Int) *big.Int { return new(big.Int).Abs(i) }
+
 func min(i *big.Int, i2 *big.Int) *big.Int {
 	if i.Cmp(i2) == 1 {
 		return new(big.Int).Set(i2)
@@ -52,12 +55,6 @@ func max(i *big.Int, i2 *big.Int) *big.Int {
 	return new(big.Int).Set(i)
 }
 
-// MarshalAmino for custom encoding scheme
-func marshalAmino(i *big.Int) (string, error) {
-	bz, err := i.MarshalText()
-	return string(bz), err
-}
-
 func unmarshalText(i *big.Int, text string) error {
 	if err := i.UnmarshalText([]byte(text)); err != nil {
 		return err
@@ -70,43 +67,26 @@ func unmarshalText(i *big.Int, text string) error {
 	return nil
 }
 
-// UnmarshalAmino for custom decoding scheme
-func unmarshalAmino(i *big.Int, text string) (err error) {
-	return unmarshalText(i, text)
-}
+var _ CustomProtobufType = (*Int)(nil)
 
-// MarshalJSON for custom encoding scheme
-// Must be encoded as a string for JSON precision
-func marshalJSON(i *big.Int) ([]byte, error) {
-	text, err := i.MarshalText()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(string(text))
-}
-
-// UnmarshalJSON for custom decoding scheme
-// Must be encoded as a string for JSON precision
-func unmarshalJSON(i *big.Int, bz []byte) error {
-	var text string
-	err := json.Unmarshal(bz, &text)
-	if err != nil {
-		return err
-	}
-
-	return unmarshalText(i, text)
-}
-
-// Int wraps integer with 256 bit range bound
+// Int wraps big.Int with a 257 bit range bound
 // Checks overflow, underflow and division by zero
-// Exists in range from -(2^maxBitLen-1) to 2^maxBitLen-1
+// Exists in range from -(2^256 - 1) to 2^256 - 1
 type Int struct {
 	i *big.Int
 }
 
 // BigInt converts Int to big.Int
 func (i Int) BigInt() *big.Int {
+	if i.IsNil() {
+		return nil
+	}
 	return new(big.Int).Set(i.i)
+}
+
+// IsNil returns true if Int is uninitialized
+func (i Int) IsNil() bool {
+	return i.i == nil
 }
 
 // NewInt constructs Int from int64
@@ -114,8 +94,20 @@ func NewInt(n int64) Int {
 	return Int{big.NewInt(n)}
 }
 
-// NewIntFromBigInt constructs Int from big.Int
+// NewIntFromUint64 constructs an Int from a uint64.
+func NewIntFromUint64(n uint64) Int {
+	b := big.NewInt(0)
+	b.SetUint64(n)
+	return Int{b}
+}
+
+// NewIntFromBigInt constructs Int from big.Int. If the provided big.Int is nil,
+// it returns an empty instance. This function panics if the bit length is > 256.
 func NewIntFromBigInt(i *big.Int) Int {
+	if i == nil {
+		return Int{}
+	}
+
 	if i.BitLen() > maxBitLen {
 		panic("NewIntFromBigInt() out of bound")
 	}
@@ -176,6 +168,20 @@ func (i Int) Int64() int64 {
 // IsInt64 returns true if Int64() not panics
 func (i Int) IsInt64() bool {
 	return i.i.IsInt64()
+}
+
+// Uint64 converts Int to uint64
+// Panics if the value is out of range
+func (i Int) Uint64() uint64 {
+	if !i.i.IsUint64() {
+		panic("Uint64() out of bounds")
+	}
+	return i.i.Uint64()
+}
+
+// IsUint64 returns true if Uint64() not panics
+func (i Int) IsUint64() bool {
+	return i.i.IsUint64()
 }
 
 // IsZero returns true if Int is zero
@@ -305,6 +311,11 @@ func (i Int) Neg() (res Int) {
 	return Int{neg(i.i)}
 }
 
+// Abs returns the absolute value of Int.
+func (i Int) Abs() Int {
+	return Int{abs(i.i)}
+}
+
 // return the minimum of the ints
 func MinInt(i1, i2 Int) Int {
 	return Int{min(i1.BigInt(), i2.BigInt())}
@@ -318,22 +329,6 @@ func MaxInt(i, i2 Int) Int {
 // Human readable string
 func (i Int) String() string {
 	return i.i.String()
-}
-
-// MarshalAmino defines custom encoding scheme
-func (i Int) MarshalAmino() (string, error) {
-	if i.i == nil { // Necessary since default Uint initialization has i.i as nil
-		i.i = new(big.Int)
-	}
-	return marshalAmino(i.i)
-}
-
-// UnmarshalAmino defines custom decoding scheme
-func (i *Int) UnmarshalAmino(text string) error {
-	if i.i == nil { // Necessary since default Int initialization has i.i as nil
-		i.i = new(big.Int)
-	}
-	return unmarshalAmino(i.i, text)
 }
 
 // MarshalJSON defines custom encoding scheme
@@ -352,10 +347,97 @@ func (i *Int) UnmarshalJSON(bz []byte) error {
 	return unmarshalJSON(i.i, bz)
 }
 
-// MarshalYAML returns Ythe AML representation.
-func (i Int) MarshalYAML() (interface{}, error) { return i.String(), nil }
+// MarshalJSON for custom encoding scheme
+// Must be encoded as a string for JSON precision
+func marshalJSON(i encoding.TextMarshaler) ([]byte, error) {
+	text, err := i.MarshalText()
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(string(text))
+}
+
+// UnmarshalJSON for custom decoding scheme
+// Must be encoded as a string for JSON precision
+func unmarshalJSON(i *big.Int, bz []byte) error {
+	var text string
+	if err := json.Unmarshal(bz, &text); err != nil {
+		return err
+	}
+
+	return unmarshalText(i, text)
+}
+
+// MarshalYAML returns the YAML representation.
+func (i Int) MarshalYAML() (interface{}, error) {
+	return i.String(), nil
+}
+
+// Marshal implements the gogo proto custom type interface.
+func (i Int) Marshal() ([]byte, error) {
+	if i.i == nil {
+		i.i = new(big.Int)
+	}
+	return i.i.MarshalText()
+}
+
+// MarshalTo implements the gogo proto custom type interface.
+func (i *Int) MarshalTo(data []byte) (n int, err error) {
+	if i.i == nil {
+		i.i = new(big.Int)
+	}
+	if i.i.BitLen() == 0 { // The value 0
+		copy(data, []byte{0x30})
+		return 1, nil
+	}
+
+	bz, err := i.Marshal()
+	if err != nil {
+		return 0, err
+	}
+
+	copy(data, bz)
+	return len(bz), nil
+}
+
+// Unmarshal implements the gogo proto custom type interface.
+func (i *Int) Unmarshal(data []byte) error {
+	if len(data) == 0 {
+		i = nil
+		return nil
+	}
+
+	if i.i == nil {
+		i.i = new(big.Int)
+	}
+
+	if err := i.i.UnmarshalText(data); err != nil {
+		return err
+	}
+
+	if i.i.BitLen() > maxBitLen {
+		return fmt.Errorf("integer out of range; got: %d, max: %d", i.i.BitLen(), maxBitLen)
+	}
+
+	return nil
+}
+
+// Size implements the gogo proto custom type interface.
+func (i *Int) Size() int {
+	bz, _ := i.Marshal()
+	return len(bz)
+}
+
+// Override Amino binary serialization by proxying to protobuf.
+func (i Int) MarshalAmino() ([]byte, error)   { return i.Marshal() }
+func (i *Int) UnmarshalAmino(bz []byte) error { return i.Unmarshal(bz) }
 
 // intended to be used with require/assert:  require.True(IntEq(...))
 func IntEq(t *testing.T, exp, got Int) (*testing.T, bool, string, string, string) {
 	return t, exp.Equal(got), "expected:\t%v\ngot:\t\t%v", exp.String(), got.String()
+}
+
+func (ip IntProto) String() string {
+	return ip.Int.String()
 }

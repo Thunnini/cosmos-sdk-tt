@@ -1,20 +1,50 @@
-<!-- < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < ☺
-v                               ✰  Thanks for creating a PR! ✰    
-v    Before smashing the submit button please review the checkboxes.
-v    If a checkbox is n/a - please still include it but + a little note why
-☺ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > >  -->
+<!--
+The default pull request template is for types feat, fix, or refactor.
+For other templates, add one of the following parameters to the url:
+- template=docs.md
+- template=other.md
+-->
 
-- Targeted PR against correct branch (see [CONTRIBUTING.md](https://github.com/cosmos/cosmos-sdk/blob/develop/CONTRIBUTING.md#pr-targeting))
+## Description
 
-- [ ] Linked to github-issue with discussion and accepted design OR link to spec that describes this work.
-- [ ] Wrote tests
-- [ ] Updated relevant documentation (`docs/`)
-- [ ] Added a relevant changelog entry: `clog add [section] [-t <tag>] [-m <msg>]`
-- [ ] Re-reviewed `Files changed` in the github PR explorer
+Closes: #XXXX
 
-______
+<!-- Add a description of the changes that this PR introduces and the files that
+are the most critical to review. -->
 
-For Admin Use:
-- Added appropriate labels to PR (ex. wip, ready-for-review, docs)
-- Reviewers Assigned
-- Squashed all commits, uses message "Merge pull request #XYZ: [title]" ([coding standards](https://github.com/tendermint/coding/blob/master/README.md#merging-a-pr))
+---
+
+### Author Checklist
+
+*All items are required. Please add a note to the item if the item is not applicable and
+please add links to any relevant follow up issues.*
+
+I have...
+
+- [ ] included the correct [type prefix](https://github.com/commitizen/conventional-commit-types/blob/v3.0.0/index.json) in the PR title
+- [ ] added `!` to the type prefix if API or client breaking change
+- [ ] targeted the correct branch (see [PR Targeting](https://github.com/cosmos/cosmos-sdk/blob/master/CONTRIBUTING.md#pr-targeting))
+- [ ] provided a link to the relevant issue or specification
+- [ ] followed the guidelines for [building modules](https://github.com/cosmos/cosmos-sdk/blob/master/docs/building-modules)
+- [ ] included the necessary unit and integration [tests](https://github.com/cosmos/cosmos-sdk/blob/master/CONTRIBUTING.md#testing)
+- [ ] added a changelog entry to `CHANGELOG.md`
+- [ ] included comments for [documenting Go code](https://blog.golang.org/godoc)
+- [ ] updated the relevant documentation or specification
+- [ ] reviewed "Files changed" and left comments if necessary
+- [ ] confirmed all CI checks have passed
+
+### Reviewers Checklist
+
+*All items are required. Please add a note if the item is not applicable and please add
+your handle next to the items reviewed if you only reviewed selected items.*
+
+I have...
+
+- [ ] confirmed the correct [type prefix](https://github.com/commitizen/conventional-commit-types/blob/v3.0.0/index.json) in the PR title
+- [ ] confirmed `!` in the type prefix if API or client breaking change
+- [ ] confirmed all author checklist items have been addressed 
+- [ ] reviewed state machine logic
+- [ ] reviewed API design and naming
+- [ ] reviewed documentation is accurate
+- [ ] reviewed tests and test coverage
+- [ ] manually tested (if applicable)

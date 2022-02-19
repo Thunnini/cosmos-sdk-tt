@@ -2,12 +2,10 @@ package utils
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/rest"
-	"github.com/cosmos/cosmos-sdk/x/params"
+	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
 )
 
 type (
@@ -20,7 +18,6 @@ type (
 	ParamChangeJSON struct {
 		Subspace string          `json:"subspace" yaml:"subspace"`
 		Key      string          `json:"key" yaml:"key"`
-		Subkey   string          `json:"subkey,omitempty" yaml:"subkey,omitempty"`
 		Value    json.RawMessage `json:"value" yaml:"value"`
 	}
 
@@ -30,34 +27,23 @@ type (
 		Title       string           `json:"title" yaml:"title"`
 		Description string           `json:"description" yaml:"description"`
 		Changes     ParamChangesJSON `json:"changes" yaml:"changes"`
-		Deposit     sdk.Coins        `json:"deposit" yaml:"deposit"`
-	}
-
-	// ParamChangeProposalReq defines a parameter change proposal request body.
-	ParamChangeProposalReq struct {
-		BaseReq rest.BaseReq `json:"base_req" yaml:"base_req"`
-
-		Title       string           `json:"title" yaml:"title"`
-		Description string           `json:"description" yaml:"description"`
-		Changes     ParamChangesJSON `json:"changes" yaml:"changes"`
-		Proposer    sdk.AccAddress   `json:"proposer" yaml:"proposer"`
-		Deposit     sdk.Coins        `json:"deposit" yaml:"deposit"`
+		Deposit     string           `json:"deposit" yaml:"deposit"`
 	}
 )
 
-func NewParamChangeJSON(subspace, key, subkey string, value json.RawMessage) ParamChangeJSON {
-	return ParamChangeJSON{subspace, key, subkey, value}
+func NewParamChangeJSON(subspace, key string, value json.RawMessage) ParamChangeJSON {
+	return ParamChangeJSON{subspace, key, value}
 }
 
 // ToParamChange converts a ParamChangeJSON object to ParamChange.
-func (pcj ParamChangeJSON) ToParamChange() params.ParamChange {
-	return params.NewParamChangeWithSubkey(pcj.Subspace, pcj.Key, pcj.Subkey, string(pcj.Value))
+func (pcj ParamChangeJSON) ToParamChange() proposal.ParamChange {
+	return proposal.NewParamChange(pcj.Subspace, pcj.Key, string(pcj.Value))
 }
 
 // ToParamChanges converts a slice of ParamChangeJSON objects to a slice of
 // ParamChange.
-func (pcj ParamChangesJSON) ToParamChanges() []params.ParamChange {
-	res := make([]params.ParamChange, len(pcj))
+func (pcj ParamChangesJSON) ToParamChanges() []proposal.ParamChange {
+	res := make([]proposal.ParamChange, len(pcj))
 	for i, pc := range pcj {
 		res[i] = pc.ToParamChange()
 	}
@@ -66,10 +52,10 @@ func (pcj ParamChangesJSON) ToParamChanges() []params.ParamChange {
 
 // ParseParamChangeProposalJSON reads and parses a ParamChangeProposalJSON from
 // file.
-func ParseParamChangeProposalJSON(cdc *codec.Codec, proposalFile string) (ParamChangeProposalJSON, error) {
+func ParseParamChangeProposalJSON(cdc *codec.LegacyAmino, proposalFile string) (ParamChangeProposalJSON, error) {
 	proposal := ParamChangeProposalJSON{}
 
-	contents, err := ioutil.ReadFile(proposalFile)
+	contents, err := os.ReadFile(proposalFile)
 	if err != nil {
 		return proposal, err
 	}

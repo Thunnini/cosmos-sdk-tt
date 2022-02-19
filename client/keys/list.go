@@ -3,10 +3,13 @@ package keys
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/cosmos/cosmos-sdk/client/flags"
+	"github.com/cosmos/cosmos-sdk/client"
 )
 
-func listKeysCmd() *cobra.Command {
+const flagListNames = "list-names"
+
+// ListKeysCmd lists all keys in the key store.
+func ListKeysCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all keys",
@@ -14,19 +17,30 @@ func listKeysCmd() *cobra.Command {
 along with their associated name and address.`,
 		RunE: runListCmd,
 	}
-	cmd.Flags().Bool(flags.FlagIndentResponse, false, "Add indent to JSON response")
+
+	cmd.Flags().BoolP(flagListNames, "n", false, "List names only")
 	return cmd
 }
 
-func runListCmd(cmd *cobra.Command, args []string) error {
-	kb, err := NewKeyBaseFromHomeFlag()
+func runListCmd(cmd *cobra.Command, _ []string) error {
+	clientCtx, err := client.GetClientQueryContext(cmd)
 	if err != nil {
 		return err
 	}
 
-	infos, err := kb.List()
-	if err == nil {
-		printInfos(infos)
+	records, err := clientCtx.Keyring.List()
+	if err != nil {
+		return err
 	}
-	return err
+
+	if ok, _ := cmd.Flags().GetBool(flagListNames); !ok {
+		printKeyringRecords(cmd.OutOrStdout(), records, clientCtx.OutputFormat)
+		return nil
+	}
+
+	for _, k := range records {
+		cmd.Println(k.Name)
+	}
+
+	return nil
 }

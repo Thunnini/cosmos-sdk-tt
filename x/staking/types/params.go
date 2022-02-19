@@ -1,13 +1,16 @@
 package types
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
+
+	"sigs.k8s.io/yaml"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/params"
+	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 )
 
 // Staking params default values
@@ -18,101 +21,215 @@ const (
 	DefaultUnbondingTime time.Duration = time.Hour * 24 * 7 * 3
 
 	// Default maximum number of bonded validators
-	DefaultMaxValidators uint16 = 100
+	DefaultMaxValidators uint32 = 100
 
 	// Default maximum entries in a UBD/RED pair
-	DefaultMaxEntries uint16 = 7
+	DefaultMaxEntries uint32 = 7
+
+	// DefaultHistorical entries is 10000. Apps that don't use IBC can ignore this
+	// value by not adding the staking module to the application module manager's
+	// SetOrderBeginBlockers.
+	DefaultHistoricalEntries uint32 = 10000
 )
 
-// nolint - Keys for parameter access
 var (
-	KeyUnbondingTime = []byte("UnbondingTime")
-	KeyMaxValidators = []byte("MaxValidators")
-	KeyMaxEntries    = []byte("KeyMaxEntries")
-	KeyBondDenom     = []byte("BondDenom")
+	// DefaultMinCommissionRate is set to 0%
+	DefaultMinCommissionRate = sdk.ZeroDec()
 )
 
-var _ params.ParamSet = (*Params)(nil)
+var (
+	KeyUnbondingTime     = []byte("UnbondingTime")
+	KeyMaxValidators     = []byte("MaxValidators")
+	KeyMaxEntries        = []byte("MaxEntries")
+	KeyBondDenom         = []byte("BondDenom")
+	KeyHistoricalEntries = []byte("HistoricalEntries")
+	KeyMinCommissionRate = []byte("MinCommissionRate")
+)
 
-// Params defines the high level settings for staking
-type Params struct {
-	UnbondingTime time.Duration `json:"unbonding_time" yaml:"unbonding_time"` // time duration of unbonding
-	MaxValidators uint16        `json:"max_validators" yaml:"max_validators"` // maximum number of validators (max uint16 = 65535)
-	MaxEntries    uint16        `json:"max_entries" yaml:"max_entries"`       // max entries for either unbonding delegation or redelegation (per pair/trio)
-	// note: we need to be a bit careful about potential overflow here, since this is user-determined
-	BondDenom string `json:"bond_denom" yaml:"bond_denom"` // bondable coin denomination
+var _ paramtypes.ParamSet = (*Params)(nil)
+
+// ParamTable for staking module
+func ParamKeyTable() paramtypes.KeyTable {
+	return paramtypes.NewKeyTable().RegisterParamSet(&Params{})
 }
 
 // NewParams creates a new Params instance
-func NewParams(unbondingTime time.Duration, maxValidators, maxEntries uint16,
-	bondDenom string) Params {
-
+func NewParams(unbondingTime time.Duration, maxValidators, maxEntries, historicalEntries uint32, bondDenom string, minCommissionRate sdk.Dec) Params {
 	return Params{
-		UnbondingTime: unbondingTime,
-		MaxValidators: maxValidators,
-		MaxEntries:    maxEntries,
-		BondDenom:     bondDenom,
+		UnbondingTime:     unbondingTime,
+		MaxValidators:     maxValidators,
+		MaxEntries:        maxEntries,
+		HistoricalEntries: historicalEntries,
+		BondDenom:         bondDenom,
+		MinCommissionRate: minCommissionRate,
 	}
 }
 
 // Implements params.ParamSet
-func (p *Params) ParamSetPairs() params.ParamSetPairs {
-	return params.ParamSetPairs{
-		{KeyUnbondingTime, &p.UnbondingTime},
-		{KeyMaxValidators, &p.MaxValidators},
-		{KeyMaxEntries, &p.MaxEntries},
-		{KeyBondDenom, &p.BondDenom},
+func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
+	return paramtypes.ParamSetPairs{
+		paramtypes.NewParamSetPair(KeyUnbondingTime, &p.UnbondingTime, validateUnbondingTime),
+		paramtypes.NewParamSetPair(KeyMaxValidators, &p.MaxValidators, validateMaxValidators),
+		paramtypes.NewParamSetPair(KeyMaxEntries, &p.MaxEntries, validateMaxEntries),
+		paramtypes.NewParamSetPair(KeyHistoricalEntries, &p.HistoricalEntries, validateHistoricalEntries),
+		paramtypes.NewParamSetPair(KeyBondDenom, &p.BondDenom, validateBondDenom),
+		paramtypes.NewParamSetPair(KeyMinCommissionRate, &p.MinCommissionRate, validateMinCommissionRate),
 	}
-}
-
-// Equal returns a boolean determining if two Param types are identical.
-// TODO: This is slower than comparing struct fields directly
-func (p Params) Equal(p2 Params) bool {
-	bz1 := ModuleCdc.MustMarshalBinaryLengthPrefixed(&p)
-	bz2 := ModuleCdc.MustMarshalBinaryLengthPrefixed(&p2)
-	return bytes.Equal(bz1, bz2)
 }
 
 // DefaultParams returns a default set of parameters.
 func DefaultParams() Params {
-	return NewParams(DefaultUnbondingTime, DefaultMaxValidators, DefaultMaxEntries, sdk.DefaultBondDenom)
+	return NewParams(
+		DefaultUnbondingTime,
+		DefaultMaxValidators,
+		DefaultMaxEntries,
+		DefaultHistoricalEntries,
+		sdk.DefaultBondDenom,
+		DefaultMinCommissionRate,
+	)
 }
 
 // String returns a human readable string representation of the parameters.
 func (p Params) String() string {
-	return fmt.Sprintf(`Params:
-  Unbonding Time:    %s
-  Max Validators:    %d
-  Max Entries:       %d
-  Bonded Coin Denom: %s`, p.UnbondingTime,
-		p.MaxValidators, p.MaxEntries, p.BondDenom)
+	out, _ := yaml.Marshal(p)
+	return string(out)
 }
 
 // unmarshal the current staking params value from store key or panic
-func MustUnmarshalParams(cdc *codec.Codec, value []byte) Params {
+func MustUnmarshalParams(cdc *codec.LegacyAmino, value []byte) Params {
 	params, err := UnmarshalParams(cdc, value)
 	if err != nil {
 		panic(err)
 	}
+
 	return params
 }
 
 // unmarshal the current staking params value from store key
-func UnmarshalParams(cdc *codec.Codec, value []byte) (params Params, err error) {
-	err = cdc.UnmarshalBinaryLengthPrefixed(value, &params)
+func UnmarshalParams(cdc *codec.LegacyAmino, value []byte) (params Params, err error) {
+	err = cdc.Unmarshal(value, &params)
 	if err != nil {
 		return
 	}
+
 	return
 }
 
 // validate a set of params
 func (p Params) Validate() error {
-	if p.BondDenom == "" {
-		return fmt.Errorf("staking parameter BondDenom can't be an empty string")
+	if err := validateUnbondingTime(p.UnbondingTime); err != nil {
+		return err
 	}
-	if p.MaxValidators == 0 {
-		return fmt.Errorf("staking parameter MaxValidators must be a positive integer")
+
+	if err := validateMaxValidators(p.MaxValidators); err != nil {
+		return err
 	}
+
+	if err := validateMaxEntries(p.MaxEntries); err != nil {
+		return err
+	}
+
+	if err := validateBondDenom(p.BondDenom); err != nil {
+		return err
+	}
+
+	if err := validateMinCommissionRate(p.MinCommissionRate); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateUnbondingTime(i interface{}) error {
+	v, ok := i.(time.Duration)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
+	if v <= 0 {
+		return fmt.Errorf("unbonding time must be positive: %d", v)
+	}
+
+	return nil
+}
+
+func validateMaxValidators(i interface{}) error {
+	v, ok := i.(uint32)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
+	if v == 0 {
+		return fmt.Errorf("max validators must be positive: %d", v)
+	}
+
+	return nil
+}
+
+func validateMaxEntries(i interface{}) error {
+	v, ok := i.(uint32)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
+	if v == 0 {
+		return fmt.Errorf("max entries must be positive: %d", v)
+	}
+
+	return nil
+}
+
+func validateHistoricalEntries(i interface{}) error {
+	_, ok := i.(uint32)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
+	return nil
+}
+
+func validateBondDenom(i interface{}) error {
+	v, ok := i.(string)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
+	if strings.TrimSpace(v) == "" {
+		return errors.New("bond denom cannot be blank")
+	}
+
+	if err := sdk.ValidateDenom(v); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ValidatePowerReduction(i interface{}) error {
+	v, ok := i.(sdk.Int)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
+	if v.LT(sdk.NewInt(1)) {
+		return fmt.Errorf("power reduction cannot be lower than 1")
+	}
+
+	return nil
+}
+
+func validateMinCommissionRate(i interface{}) error {
+	v, ok := i.(sdk.Dec)
+	if !ok {
+		return fmt.Errorf("invalid parameter type: %T", i)
+	}
+
+	if v.IsNegative() {
+		return fmt.Errorf("minimum commission rate cannot be negative: %s", v)
+	}
+	if v.GT(sdk.OneDec()) {
+		return fmt.Errorf("minimum commission rate cannot be greater than 100%%: %s", v)
+	}
+
 	return nil
 }

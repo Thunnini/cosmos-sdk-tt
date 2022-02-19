@@ -2,26 +2,47 @@ package types
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/cosmos/cosmos-sdk/x/auth/exported"
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
+	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 )
 
-// RegisterCodec registers concrete types on the codec
-func RegisterCodec(cdc *codec.Codec) {
-	cdc.RegisterInterface((*exported.Account)(nil), nil)
-	cdc.RegisterConcrete(&BaseAccount{}, "cosmos-sdk/Account", nil)
-	cdc.RegisterInterface((*exported.VestingAccount)(nil), nil)
-	cdc.RegisterConcrete(&BaseVestingAccount{}, "cosmos-sdk/BaseVestingAccount", nil)
-	cdc.RegisterConcrete(&ContinuousVestingAccount{}, "cosmos-sdk/ContinuousVestingAccount", nil)
-	cdc.RegisterConcrete(&DelayedVestingAccount{}, "cosmos-sdk/DelayedVestingAccount", nil)
-	cdc.RegisterConcrete(StdTx{}, "cosmos-sdk/StdTx", nil)
+// RegisterLegacyAminoCodec registers the account interfaces and concrete types on the
+// provided LegacyAmino codec. These types are used for Amino JSON serialization
+func RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	cdc.RegisterInterface((*ModuleAccountI)(nil), nil)
+	cdc.RegisterInterface((*GenesisAccount)(nil), nil)
+	cdc.RegisterInterface((*AccountI)(nil), nil)
+	cdc.RegisterConcrete(&BaseAccount{}, "cosmos-sdk/BaseAccount", nil)
+	cdc.RegisterConcrete(&ModuleAccount{}, "cosmos-sdk/ModuleAccount", nil)
+
+	legacytx.RegisterLegacyAminoCodec(cdc)
 }
 
-// module wide codec
-var ModuleCdc *codec.Codec
+// RegisterInterfaces associates protoName with AccountI interface
+// and creates a registry of it's concrete implementations
+func RegisterInterfaces(registry types.InterfaceRegistry) {
+	registry.RegisterInterface(
+		"cosmos.auth.v1beta1.AccountI",
+		(*AccountI)(nil),
+		&BaseAccount{},
+		&ModuleAccount{},
+	)
+
+	registry.RegisterInterface(
+		"cosmos.auth.v1beta1.GenesisAccount",
+		(*GenesisAccount)(nil),
+		&BaseAccount{},
+		&ModuleAccount{},
+	)
+}
+
+var (
+	amino     = codec.NewLegacyAmino()
+	ModuleCdc = codec.NewAminoCodec(amino)
+)
 
 func init() {
-	ModuleCdc = codec.New()
-	RegisterCodec(ModuleCdc)
-	codec.RegisterCrypto(ModuleCdc)
-	ModuleCdc.Seal()
+	RegisterLegacyAminoCodec(amino)
+	cryptocodec.RegisterCrypto(amino)
 }

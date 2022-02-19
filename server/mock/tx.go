@@ -4,18 +4,30 @@ package mock
 import (
 	"bytes"
 	"fmt"
+	"math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/cosmos-sdk/x/auth/middleware"
 )
 
-// An sdk.Tx which is its own sdk.Msg.
+// kvstoreTx defines a tx for mock purposes. The `key` and `value` fields will
+// set those bytes in the kvstore, and the `bytes` field represents its
+// GetSignBytes value.
 type kvstoreTx struct {
 	key   []byte
 	value []byte
 	bytes []byte
 }
 
-var _ sdk.Tx = kvstoreTx{}
+// dummy implementation of proto.Message
+func (msg *kvstoreTx) Reset()         {}
+func (msg *kvstoreTx) String() string { return "TODO" }
+func (msg *kvstoreTx) ProtoMessage()  {}
+
+var _ sdk.Tx = &kvstoreTx{}
+var _ sdk.Msg = &kvstoreTx{}
+var _ middleware.GasTx = &kvstoreTx{}
 
 func NewTx(key, value string) kvstoreTx {
 	bytes := fmt.Sprintf("%s=%s", key, value)
@@ -34,7 +46,7 @@ func (tx kvstoreTx) Type() string {
 	return "kvstore_tx"
 }
 
-func (tx kvstoreTx) GetMsgs() []sdk.Msg {
+func (tx *kvstoreTx) GetMsgs() []sdk.Msg {
 	return []sdk.Msg{tx}
 }
 
@@ -47,7 +59,7 @@ func (tx kvstoreTx) GetSignBytes() []byte {
 }
 
 // Should the app be calling this? Or only handlers?
-func (tx kvstoreTx) ValidateBasic() sdk.Error {
+func (tx kvstoreTx) ValidateBasic() error {
 	return nil
 }
 
@@ -55,20 +67,24 @@ func (tx kvstoreTx) GetSigners() []sdk.AccAddress {
 	return nil
 }
 
+func (tx kvstoreTx) GetGas() uint64 {
+	return math.MaxUint64
+}
+
 // takes raw transaction bytes and decodes them into an sdk.Tx. An sdk.Tx has
 // all the signatures and can be used to authenticate.
-func decodeTx(txBytes []byte) (sdk.Tx, sdk.Error) {
+func decodeTx(txBytes []byte) (sdk.Tx, error) {
 	var tx sdk.Tx
 
 	split := bytes.Split(txBytes, []byte("="))
 	if len(split) == 1 {
 		k := split[0]
-		tx = kvstoreTx{k, k, txBytes}
+		tx = &kvstoreTx{k, k, txBytes}
 	} else if len(split) == 2 {
 		k, v := split[0], split[1]
-		tx = kvstoreTx{k, v, txBytes}
+		tx = &kvstoreTx{k, v, txBytes}
 	} else {
-		return nil, sdk.ErrTxDecode("too many =")
+		return nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, "too many '='")
 	}
 
 	return tx, nil

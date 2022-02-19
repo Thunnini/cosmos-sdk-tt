@@ -1,32 +1,36 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	tmtypes "github.com/tendermint/tendermint/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/rest"
-	"github.com/cosmos/cosmos-sdk/x/auth/client/utils"
+	"github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/cosmos-sdk/types/query"
+	"github.com/cosmos/cosmos-sdk/version"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
-
-	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 const (
-	flagTags  = "tags"
-	flagPage  = "page"
-	flagLimit = "limit"
+	flagEvents = "events"
+	flagType   = "type"
+
+	typeHash   = "hash"
+	typeAccSeq = "acc_seq"
+	typeSig    = "signature"
+
+	eventFormat = "{eventType}.{eventAttribute}={value}"
 )
 
-// GetTxCmd returns the transaction commands for this module
-func GetQueryCmd(cdc *codec.Codec) *cobra.Command {
+// GetQueryCmd returns the transaction commands for this module
+func GetQueryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                        types.ModuleName,
 		Short:                      "Querying commands for the auth module",
@@ -35,147 +39,316 @@ func GetQueryCmd(cdc *codec.Codec) *cobra.Command {
 		RunE:                       client.ValidateCmd,
 	}
 
-	cmd.AddCommand(GetAccountCmd(cdc))
+	cmd.AddCommand(
+		GetAccountCmd(),
+		GetAccountsCmd(),
+		QueryParamsCmd(),
+		QueryModuleAccountsCmd(),
+	)
+
+	return cmd
+}
+
+// QueryParamsCmd returns the command handler for evidence parameter querying.
+func QueryParamsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "params",
+		Short: "Query the current auth parameters",
+		Args:  cobra.NoArgs,
+		Long: strings.TrimSpace(`Query the current auth parameters:
+
+$ <appd> query auth params
+`),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			queryClient := types.NewQueryClient(clientCtx)
+			res, err := queryClient.Params(cmd.Context(), &types.QueryParamsRequest{})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(&res.Params)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
 
 	return cmd
 }
 
 // GetAccountCmd returns a query account that will display the state of the
 // account at a given address.
-func GetAccountCmd(cdc *codec.Codec) *cobra.Command {
+func GetAccountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "account [address]",
-		Short: "Query account balance",
+		Short: "Query for account by address",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			accGetter := types.NewAccountRetriever(cliCtx)
-
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
 			key, err := sdk.AccAddressFromBech32(args[0])
 			if err != nil {
 				return err
 			}
 
-			if err := accGetter.EnsureExists(key); err != nil {
-				return err
-			}
-
-			acc, err := accGetter.GetAccount(key)
+			queryClient := types.NewQueryClient(clientCtx)
+			res, err := queryClient.Account(cmd.Context(), &types.QueryAccountRequest{Address: key.String()})
 			if err != nil {
 				return err
 			}
 
-			return cliCtx.PrintOutput(acc)
+			return clientCtx.PrintProto(res.Account)
 		},
 	}
 
-	return flags.GetCommands(cmd)[0]
+	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
+}
+
+// GetAccountsCmd returns a query command that will display a list of accounts
+func GetAccountsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "accounts",
+		Short: "Query all the accounts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			pageReq, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
+
+			queryClient := types.NewQueryClient(clientCtx)
+			res, err := queryClient.Accounts(cmd.Context(), &types.QueryAccountsRequest{Pagination: pageReq})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+	flags.AddPaginationFlagsToCmd(cmd, "all-accounts")
+
+	return cmd
+}
+
+// QueryAllModuleAccountsCmd returns a list of all the existing module accounts with their account information and permissions
+func QueryModuleAccountsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "module-accounts",
+		Short: "Query all module accounts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			queryClient := types.NewQueryClient(clientCtx)
+
+			res, err := queryClient.ModuleAccounts(context.Background(), &types.QueryModuleAccountsRequest{})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
 }
 
 // QueryTxsByEventsCmd returns a command to search through transactions by events.
-func QueryTxsByEventsCmd(cdc *codec.Codec) *cobra.Command {
+func QueryTxsByEventsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "txs",
-		Short: "Query for paginated transactions that match a set of tags",
-		Long: strings.TrimSpace(`
-Search for transactions that match the exact given tags where results are paginated.
+		Short: "Query for paginated transactions that match a set of events",
+		Long: strings.TrimSpace(
+			fmt.Sprintf(`
+Search for transactions that match the exact given events where results are paginated.
+Each event takes the form of '%s'. Please refer
+to each module's documentation for the full set of events to query for. Each module
+documents its respective events under 'xx_events.md'.
 
 Example:
-$ <appcli> query txs --tags '<tag1>:<value1>&<tag2>:<value2>' --page 1 --limit 30
-`),
+$ %s query txs --%s 'message.sender=cosmos1...&message.action=withdraw_delegator_reward' --page 1 --limit 30
+`, eventFormat, version.AppName, flagEvents),
+		),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tagsStr := viper.GetString(flagTags)
-			tagsStr = strings.Trim(tagsStr, "'")
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			eventsRaw, _ := cmd.Flags().GetString(flagEvents)
+			eventsStr := strings.Trim(eventsRaw, "'")
 
-			var tags []string
-			if strings.Contains(tagsStr, "&") {
-				tags = strings.Split(tagsStr, "&")
+			var events []string
+			if strings.Contains(eventsStr, "&") {
+				events = strings.Split(eventsStr, "&")
 			} else {
-				tags = append(tags, tagsStr)
+				events = append(events, eventsStr)
 			}
 
-			var tmTags []string
-			for _, tag := range tags {
-				if !strings.Contains(tag, ":") {
-					return fmt.Errorf("%s should be of the format <key>:<value>", tagsStr)
-				} else if strings.Count(tag, ":") > 1 {
-					return fmt.Errorf("%s should only contain one <key>:<value> pair", tagsStr)
+			var tmEvents []string
+
+			for _, event := range events {
+				if !strings.Contains(event, "=") {
+					return fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
+				} else if strings.Count(event, "=") > 1 {
+					return fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
 				}
 
-				keyValue := strings.Split(tag, ":")
-				if keyValue[0] == tmtypes.TxHeightKey {
-					tag = fmt.Sprintf("%s=%s", keyValue[0], keyValue[1])
+				tokens := strings.Split(event, "=")
+				if tokens[0] == tmtypes.TxHeightKey {
+					event = fmt.Sprintf("%s=%s", tokens[0], tokens[1])
 				} else {
-					tag = fmt.Sprintf("%s='%s'", keyValue[0], keyValue[1])
+					event = fmt.Sprintf("%s='%s'", tokens[0], tokens[1])
 				}
 
-				tmTags = append(tmTags, tag)
+				tmEvents = append(tmEvents, event)
 			}
 
-			page := viper.GetInt(flagPage)
-			limit := viper.GetInt(flagLimit)
+			page, _ := cmd.Flags().GetInt(flags.FlagPage)
+			limit, _ := cmd.Flags().GetInt(flags.FlagLimit)
 
-			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			txs, err := utils.QueryTxsByEvents(cliCtx, tmTags, page, limit)
+			txs, err := authtx.QueryTxsByEvents(clientCtx, tmEvents, page, limit, "")
 			if err != nil {
 				return err
 			}
 
-			var output []byte
-			if cliCtx.Indent {
-				output, err = cdc.MarshalJSONIndent(txs, "", "  ")
-			} else {
-				output, err = cdc.MarshalJSON(txs)
-			}
-
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(output))
-			return nil
+			return clientCtx.PrintProto(txs)
 		},
 	}
 
-	cmd.Flags().StringP(flags.FlagNode, "n", "tcp://localhost:26657", "Node to connect to")
-	viper.BindPFlag(flags.FlagNode, cmd.Flags().Lookup(flags.FlagNode))
-	cmd.Flags().Bool(flags.FlagTrustNode, false, "Trust connected full node (don't verify proofs for responses)")
-	viper.BindPFlag(flags.FlagTrustNode, cmd.Flags().Lookup(flags.FlagTrustNode))
-
-	cmd.Flags().String(flagTags, "", "tag:value list of tags that must match")
-	cmd.Flags().Uint32(flagPage, rest.DefaultPage, "Query a specific page of paginated results")
-	cmd.Flags().Uint32(flagLimit, rest.DefaultLimit, "Query number of transactions results per page returned")
-	cmd.MarkFlagRequired(flagTags)
+	flags.AddQueryFlagsToCmd(cmd)
+	cmd.Flags().Int(flags.FlagPage, query.DefaultPage, "Query a specific page of paginated results")
+	cmd.Flags().Int(flags.FlagLimit, query.DefaultLimit, "Query number of transactions results per page returned")
+	cmd.Flags().String(flagEvents, "", fmt.Sprintf("list of transaction events in the form of %s", eventFormat))
+	cmd.MarkFlagRequired(flagEvents)
 
 	return cmd
 }
 
 // QueryTxCmd implements the default command for a tx query.
-func QueryTxCmd(cdc *codec.Codec) *cobra.Command {
+func QueryTxCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tx [hash]",
-		Short: "Query for a transaction by hash in a committed block",
-		Args:  cobra.ExactArgs(1),
+		Use:   "tx --type=[hash|acc_seq|signature] [hash|acc_seq|signature]",
+		Short: "Query for a transaction by hash, \"<addr>/<seq>\" combination or comma-separated signatures in a committed block",
+		Long: strings.TrimSpace(fmt.Sprintf(`
+Example:
+$ %s query tx <hash>
+$ %s query tx --%s=%s <addr>/<sequence>
+$ %s query tx --%s=%s <sig1_base64>,<sig2_base64...>
+`,
+			version.AppName,
+			version.AppName, flagType, typeAccSeq,
+			version.AppName, flagType, typeSig)),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliCtx := context.NewCLIContext().WithCodec(cdc)
-
-			output, err := utils.QueryTx(cliCtx, args[0])
+			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return err
 			}
 
-			if output.Empty() {
-				return fmt.Errorf("No transaction found with hash %s", args[0])
-			}
+			typ, _ := cmd.Flags().GetString(flagType)
 
-			return cliCtx.PrintOutput(output)
+			switch typ {
+			case typeHash:
+				{
+					if args[0] == "" {
+						return fmt.Errorf("argument should be a tx hash")
+					}
+
+					// If hash is given, then query the tx by hash.
+					output, err := authtx.QueryTx(clientCtx, args[0])
+					if err != nil {
+						return err
+					}
+
+					if output.Empty() {
+						return fmt.Errorf("no transaction found with hash %s", args[0])
+					}
+
+					return clientCtx.PrintProto(output)
+				}
+			case typeSig:
+				{
+					sigParts, err := parseSigArgs(args)
+					if err != nil {
+						return err
+					}
+					tmEvents := make([]string, len(sigParts))
+					for i, sig := range sigParts {
+						tmEvents[i] = fmt.Sprintf("%s.%s='%s'", sdk.EventTypeTx, sdk.AttributeKeySignature, sig)
+					}
+
+					txs, err := authtx.QueryTxsByEvents(clientCtx, tmEvents, query.DefaultPage, query.DefaultLimit, "")
+					if err != nil {
+						return err
+					}
+					if len(txs.Txs) == 0 {
+						return fmt.Errorf("found no txs matching given signatures")
+					}
+					if len(txs.Txs) > 1 {
+						// This case means there's a bug somewhere else in the code. Should not happen.
+						return errors.ErrLogic.Wrapf("found %d txs matching given signatures", len(txs.Txs))
+					}
+
+					return clientCtx.PrintProto(txs.Txs[0])
+				}
+			case typeAccSeq:
+				{
+					if args[0] == "" {
+						return fmt.Errorf("`acc_seq` type takes an argument '<addr>/<seq>'")
+					}
+
+					tmEvents := []string{
+						fmt.Sprintf("%s.%s='%s'", sdk.EventTypeTx, sdk.AttributeKeyAccountSequence, args[0]),
+					}
+					txs, err := authtx.QueryTxsByEvents(clientCtx, tmEvents, query.DefaultPage, query.DefaultLimit, "")
+					if err != nil {
+						return err
+					}
+					if len(txs.Txs) == 0 {
+						return fmt.Errorf("found no txs matching given address and sequence combination")
+					}
+					if len(txs.Txs) > 1 {
+						// This case means there's a bug somewhere else in the code. Should not happen.
+						return fmt.Errorf("found %d txs matching given address and sequence combination", len(txs.Txs))
+					}
+
+					return clientCtx.PrintProto(txs.Txs[0])
+				}
+			default:
+				return fmt.Errorf("unknown --%s value %s", flagType, typ)
+			}
 		},
 	}
 
-	cmd.Flags().StringP(flags.FlagNode, "n", "tcp://localhost:26657", "Node to connect to")
-	viper.BindPFlag(flags.FlagNode, cmd.Flags().Lookup(flags.FlagNode))
-	cmd.Flags().Bool(flags.FlagTrustNode, false, "Trust connected full node (don't verify proofs for responses)")
-	viper.BindPFlag(flags.FlagTrustNode, cmd.Flags().Lookup(flags.FlagTrustNode))
+	flags.AddQueryFlagsToCmd(cmd)
+	cmd.Flags().String(flagType, typeHash, fmt.Sprintf("The type to be used when querying tx, can be one of \"%s\", \"%s\", \"%s\"", typeHash, typeAccSeq, typeSig))
 
 	return cmd
+}
+
+// parseSigArgs parses comma-separated signatures from the CLI arguments.
+func parseSigArgs(args []string) ([]string, error) {
+	if len(args) != 1 || args[0] == "" {
+		return nil, fmt.Errorf("argument should be comma-separated signatures")
+	}
+
+	return strings.Split(args[0], ","), nil
 }

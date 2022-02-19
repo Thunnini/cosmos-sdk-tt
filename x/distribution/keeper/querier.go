@@ -2,116 +2,110 @@ package keeper
 
 import (
 	"encoding/json"
-	"fmt"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/cosmos-sdk/x/distribution/types"
-	"github.com/cosmos/cosmos-sdk/x/staking/exported"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-func NewQuerier(k Keeper) sdk.Querier {
-	return func(ctx sdk.Context, path []string, req abci.RequestQuery) ([]byte, sdk.Error) {
+func NewQuerier(k Keeper, legacyQuerierCdc *codec.LegacyAmino) sdk.Querier {
+	return func(ctx sdk.Context, path []string, req abci.RequestQuery) ([]byte, error) {
 		switch path[0] {
 		case types.QueryParams:
-			return queryParams(ctx, path[1:], req, k)
+			return queryParams(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		case types.QueryValidatorOutstandingRewards:
-			return queryValidatorOutstandingRewards(ctx, path[1:], req, k)
+			return queryValidatorOutstandingRewards(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		case types.QueryValidatorCommission:
-			return queryValidatorCommission(ctx, path[1:], req, k)
+			return queryValidatorCommission(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		case types.QueryValidatorSlashes:
-			return queryValidatorSlashes(ctx, path[1:], req, k)
+			return queryValidatorSlashes(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		case types.QueryDelegationRewards:
-			return queryDelegationRewards(ctx, path[1:], req, k)
+			return queryDelegationRewards(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		case types.QueryDelegatorTotalRewards:
-			return queryDelegatorTotalRewards(ctx, path[1:], req, k)
+			return queryDelegatorTotalRewards(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		case types.QueryDelegatorValidators:
-			return queryDelegatorValidators(ctx, path[1:], req, k)
+			return queryDelegatorValidators(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		case types.QueryWithdrawAddr:
-			return queryDelegatorWithdrawAddress(ctx, path[1:], req, k)
+			return queryDelegatorWithdrawAddress(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		case types.QueryCommunityPool:
-			return queryCommunityPool(ctx, path[1:], req, k)
+			return queryCommunityPool(ctx, path[1:], req, k, legacyQuerierCdc)
 
 		default:
-			return nil, sdk.ErrUnknownRequest("unknown distr query endpoint")
+			return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "unknown query path: %s", path[0])
 		}
 	}
 }
 
-func queryParams(ctx sdk.Context, path []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
-	switch path[0] {
-	case types.ParamCommunityTax:
-		bz, err := codec.MarshalJSONIndent(k.cdc, k.GetCommunityTax(ctx))
-		if err != nil {
-			return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
-		}
-		return bz, nil
-	case types.ParamBaseProposerReward:
-		bz, err := codec.MarshalJSONIndent(k.cdc, k.GetBaseProposerReward(ctx))
-		if err != nil {
-			return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
-		}
-		return bz, nil
-	case types.ParamBonusProposerReward:
-		bz, err := codec.MarshalJSONIndent(k.cdc, k.GetBonusProposerReward(ctx))
-		if err != nil {
-			return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
-		}
-		return bz, nil
-	case types.ParamWithdrawAddrEnabled:
-		bz, err := codec.MarshalJSONIndent(k.cdc, k.GetWithdrawAddrEnabled(ctx))
-		if err != nil {
-			return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
-		}
-		return bz, nil
-	default:
-		return nil, sdk.ErrUnknownRequest(fmt.Sprintf("%s is not a valid query request path", req.Path))
+func queryParams(ctx sdk.Context, _ []string, _ abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
+	params := k.GetParams(ctx)
+
+	res, err := codec.MarshalJSONIndent(legacyQuerierCdc, params)
+	if err != nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 	}
+
+	return res, nil
 }
 
-func queryValidatorOutstandingRewards(ctx sdk.Context, path []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
+func queryValidatorOutstandingRewards(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
 	var params types.QueryValidatorOutstandingRewardsParams
-	err := k.cdc.UnmarshalJSON(req.Data, &params)
+	err := legacyQuerierCdc.UnmarshalJSON(req.Data, &params)
 	if err != nil {
-		return nil, sdk.ErrUnknownRequest(sdk.AppendMsgToErr("incorrectly formatted request data", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
-	bz, err := codec.MarshalJSONIndent(k.cdc, k.GetValidatorOutstandingRewards(ctx, params.ValidatorAddress))
+
+	rewards := k.GetValidatorOutstandingRewards(ctx, params.ValidatorAddress)
+	if rewards.GetRewards() == nil {
+		rewards.Rewards = sdk.DecCoins{}
+	}
+
+	bz, err := codec.MarshalJSONIndent(legacyQuerierCdc, rewards)
 	if err != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 	}
+
 	return bz, nil
 }
 
-func queryValidatorCommission(ctx sdk.Context, path []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
+func queryValidatorCommission(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
 	var params types.QueryValidatorCommissionParams
-	err := k.cdc.UnmarshalJSON(req.Data, &params)
+	err := legacyQuerierCdc.UnmarshalJSON(req.Data, &params)
 	if err != nil {
-		return nil, sdk.ErrUnknownRequest(sdk.AppendMsgToErr("incorrectly formatted request data", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
+
 	commission := k.GetValidatorAccumulatedCommission(ctx, params.ValidatorAddress)
-	bz, err := codec.MarshalJSONIndent(k.cdc, commission)
-	if err != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
+	if commission.Commission == nil {
+		commission.Commission = sdk.DecCoins{}
 	}
+
+	bz, err := codec.MarshalJSONIndent(legacyQuerierCdc, commission)
+	if err != nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
+	}
+
 	return bz, nil
 }
 
-func queryValidatorSlashes(ctx sdk.Context, path []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
+func queryValidatorSlashes(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
 	var params types.QueryValidatorSlashesParams
-	err := k.cdc.UnmarshalJSON(req.Data, &params)
+	err := legacyQuerierCdc.UnmarshalJSON(req.Data, &params)
 	if err != nil {
-		return nil, sdk.ErrUnknownRequest(sdk.AppendMsgToErr("incorrectly formatted request data", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
+
 	events := make([]types.ValidatorSlashEvent, 0)
 	k.IterateValidatorSlashEventsBetween(ctx, params.ValidatorAddress, params.StartingHeight, params.EndingHeight,
 		func(height uint64, event types.ValidatorSlashEvent) (stop bool) {
@@ -119,132 +113,144 @@ func queryValidatorSlashes(ctx sdk.Context, path []string, req abci.RequestQuery
 			return false
 		},
 	)
-	bz, err := codec.MarshalJSONIndent(k.cdc, events)
+
+	bz, err := codec.MarshalJSONIndent(legacyQuerierCdc, events)
 	if err != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 	}
+
 	return bz, nil
 }
 
-func queryDelegationRewards(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
+func queryDelegationRewards(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
 	var params types.QueryDelegationRewardsParams
-	err := k.cdc.UnmarshalJSON(req.Data, &params)
+	err := legacyQuerierCdc.UnmarshalJSON(req.Data, &params)
 	if err != nil {
-		return nil, sdk.ErrUnknownRequest(sdk.AppendMsgToErr("incorrectly formatted request data", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
 
-	// cache-wrap context as to not persist state changes during querying
+	// branch the context to isolate state changes
 	ctx, _ = ctx.CacheContext()
 
 	val := k.stakingKeeper.Validator(ctx, params.ValidatorAddress)
 	if val == nil {
-		// TODO: Should use ErrNoValidatorFound from staking/types
-		return nil, sdk.ErrInternal(fmt.Sprintf("validator %s does not exist", params.ValidatorAddress))
+		return nil, sdkerrors.Wrap(types.ErrNoValidatorExists, params.ValidatorAddress.String())
 	}
 
 	del := k.stakingKeeper.Delegation(ctx, params.DelegatorAddress, params.ValidatorAddress)
 	if del == nil {
-		// TODO: Should use ErrNoDelegation from staking/types
-		return nil, sdk.ErrInternal("delegation does not exist")
+		return nil, types.ErrNoDelegationExists
 	}
 
-	endingPeriod := k.incrementValidatorPeriod(ctx, val)
-	rewards := k.calculateDelegationRewards(ctx, val, del, endingPeriod)
+	endingPeriod := k.IncrementValidatorPeriod(ctx, val)
+	rewards := k.CalculateDelegationRewards(ctx, val, del, endingPeriod)
+	if rewards == nil {
+		rewards = sdk.DecCoins{}
+	}
 
-	bz, err := codec.MarshalJSONIndent(k.cdc, rewards)
+	bz, err := codec.MarshalJSONIndent(legacyQuerierCdc, rewards)
 	if err != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 	}
 
 	return bz, nil
 }
 
-func queryDelegatorTotalRewards(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
+func queryDelegatorTotalRewards(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
 	var params types.QueryDelegatorParams
-	err := k.cdc.UnmarshalJSON(req.Data, &params)
+	err := legacyQuerierCdc.UnmarshalJSON(req.Data, &params)
 	if err != nil {
-		return nil, sdk.ErrUnknownRequest(sdk.AppendMsgToErr("incorrectly formatted request data", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
 
-	// cache-wrap context as to not persist state changes during querying
+	// branch the context to isolate state changes
 	ctx, _ = ctx.CacheContext()
 
 	total := sdk.DecCoins{}
+
 	var delRewards []types.DelegationDelegatorReward
 
 	k.stakingKeeper.IterateDelegations(
 		ctx, params.DelegatorAddress,
-		func(_ int64, del exported.DelegationI) (stop bool) {
+		func(_ int64, del stakingtypes.DelegationI) (stop bool) {
 			valAddr := del.GetValidatorAddr()
 			val := k.stakingKeeper.Validator(ctx, valAddr)
-			endingPeriod := k.incrementValidatorPeriod(ctx, val)
-			delReward := k.calculateDelegationRewards(ctx, val, del, endingPeriod)
+			endingPeriod := k.IncrementValidatorPeriod(ctx, val)
+			delReward := k.CalculateDelegationRewards(ctx, val, del, endingPeriod)
 
 			delRewards = append(delRewards, types.NewDelegationDelegatorReward(valAddr, delReward))
-			total = total.Add(delReward)
+			total = total.Add(delReward...)
 			return false
 		},
 	)
 
 	totalRewards := types.NewQueryDelegatorTotalRewardsResponse(delRewards, total)
+
 	bz, err := json.Marshal(totalRewards)
 	if err != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 	}
 
 	return bz, nil
 }
 
-func queryDelegatorValidators(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
+func queryDelegatorValidators(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
 	var params types.QueryDelegatorParams
-	err := k.cdc.UnmarshalJSON(req.Data, &params)
+	err := legacyQuerierCdc.UnmarshalJSON(req.Data, &params)
 	if err != nil {
-		return nil, sdk.ErrUnknownRequest(sdk.AppendMsgToErr("incorrectly formatted request data", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
 
-	// cache-wrap context as to not persist state changes during querying
+	// branch the context to isolate state changes
 	ctx, _ = ctx.CacheContext()
 
 	var validators []sdk.ValAddress
 
 	k.stakingKeeper.IterateDelegations(
 		ctx, params.DelegatorAddress,
-		func(_ int64, del exported.DelegationI) (stop bool) {
-			validators = append(validators[:], del.GetValidatorAddr())
+		func(_ int64, del stakingtypes.DelegationI) (stop bool) {
+			validators = append(validators, del.GetValidatorAddr())
 			return false
 		},
 	)
 
-	bz, err := codec.MarshalJSONIndent(k.cdc, validators)
+	bz, err := codec.MarshalJSONIndent(legacyQuerierCdc, validators)
 	if err != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 	}
+
 	return bz, nil
 }
 
-func queryDelegatorWithdrawAddress(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
+func queryDelegatorWithdrawAddress(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
 	var params types.QueryDelegatorWithdrawAddrParams
-	err := k.cdc.UnmarshalJSON(req.Data, &params)
+	err := legacyQuerierCdc.UnmarshalJSON(req.Data, &params)
 	if err != nil {
-		return nil, sdk.ErrUnknownRequest(sdk.AppendMsgToErr("incorrectly formatted request data", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONUnmarshal, err.Error())
 	}
 
-	// cache-wrap context as to not persist state changes during querying
+	// branch the context to isolate state changes
 	ctx, _ = ctx.CacheContext()
 	withdrawAddr := k.GetDelegatorWithdrawAddr(ctx, params.DelegatorAddress)
 
-	bz, err := codec.MarshalJSONIndent(k.cdc, withdrawAddr)
+	bz, err := codec.MarshalJSONIndent(legacyQuerierCdc, withdrawAddr)
 	if err != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
 	}
 
 	return bz, nil
 }
 
-func queryCommunityPool(ctx sdk.Context, _ []string, req abci.RequestQuery, k Keeper) ([]byte, sdk.Error) {
-	bz, err := k.cdc.MarshalJSON(k.GetFeePoolCommunityCoins(ctx))
-	if err != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
+func queryCommunityPool(ctx sdk.Context, _ []string, _ abci.RequestQuery, k Keeper, legacyQuerierCdc *codec.LegacyAmino) ([]byte, error) {
+	pool := k.GetFeePoolCommunityCoins(ctx)
+	if pool == nil {
+		pool = sdk.DecCoins{}
 	}
+
+	bz, err := legacyQuerierCdc.MarshalJSON(pool)
+	if err != nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrJSONMarshal, err.Error())
+	}
+
 	return bz, nil
 }

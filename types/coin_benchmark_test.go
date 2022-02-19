@@ -5,23 +5,29 @@ import (
 	"testing"
 )
 
+func coinName(suffix int) string {
+	return fmt.Sprintf("coinz%04d", suffix)
+}
+
 func BenchmarkCoinsAdditionIntersect(b *testing.B) {
+	b.ReportAllocs()
 	benchmarkingFunc := func(numCoinsA int, numCoinsB int) func(b *testing.B) {
 		return func(b *testing.B) {
+			b.ReportAllocs()
 			coinsA := Coins(make([]Coin, numCoinsA))
 			coinsB := Coins(make([]Coin, numCoinsB))
 
 			for i := 0; i < numCoinsA; i++ {
-				coinsA[i] = NewCoin("COINZ_"+string(i), NewInt(int64(i)))
+				coinsA[i] = NewCoin(coinName(i), NewInt(int64(i)))
 			}
 			for i := 0; i < numCoinsB; i++ {
-				coinsB[i] = NewCoin("COINZ_"+string(i), NewInt(int64(i)))
+				coinsB[i] = NewCoin(coinName(i), NewInt(int64(i)))
 			}
 
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				coinsA.Add(coinsB)
+				coinsA.Add(coinsB...)
 			}
 		}
 	}
@@ -35,22 +41,24 @@ func BenchmarkCoinsAdditionIntersect(b *testing.B) {
 }
 
 func BenchmarkCoinsAdditionNoIntersect(b *testing.B) {
+	b.ReportAllocs()
 	benchmarkingFunc := func(numCoinsA int, numCoinsB int) func(b *testing.B) {
 		return func(b *testing.B) {
+			b.ReportAllocs()
 			coinsA := Coins(make([]Coin, numCoinsA))
 			coinsB := Coins(make([]Coin, numCoinsB))
 
 			for i := 0; i < numCoinsA; i++ {
-				coinsA[i] = NewCoin("COINZ_"+string(numCoinsB+i), NewInt(int64(i)))
+				coinsA[i] = NewCoin(coinName(numCoinsB+i), NewInt(int64(i)))
 			}
 			for i := 0; i < numCoinsB; i++ {
-				coinsB[i] = NewCoin("COINZ_"+string(i), NewInt(int64(i)))
+				coinsB[i] = NewCoin(coinName(i), NewInt(int64(i)))
 			}
 
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				coinsA.Add(coinsB)
+				coinsA.Add(coinsB...)
 			}
 		}
 	}

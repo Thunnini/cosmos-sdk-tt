@@ -1,13 +1,12 @@
 package types
 
 import (
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// nolint: deadcode unused
+// nolint:deadcode,unused,varcheck
 var (
 	delPk1       = ed25519.GenPrivKey().PubKey()
 	delPk2       = ed25519.GenPrivKey().PubKey()
@@ -25,5 +24,5 @@ var (
 	valAddr3     = sdk.ValAddress(valPk3.Address())
 	emptyValAddr sdk.ValAddress
 
-	emptyPubkey crypto.PubKey
+	emptyPubkey cryptotypes.PubKey
 )

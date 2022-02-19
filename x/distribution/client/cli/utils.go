@@ -1,33 +1,22 @@
 package cli
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/distribution/types"
 )
 
-type (
-	// CommunityPoolSpendProposalJSON defines a CommunityPoolSpendProposal with a deposit
-	CommunityPoolSpendProposalJSON struct {
-		Title       string         `json:"title" yaml:"title"`
-		Description string         `json:"description" yaml:"description"`
-		Recipient   sdk.AccAddress `json:"recipient" yaml:"recipient"`
-		Amount      sdk.Coins      `json:"amount" yaml:"amount"`
-		Deposit     sdk.Coins      `json:"deposit" yaml:"deposit"`
-	}
-)
+// ParseCommunityPoolSpendProposalWithDeposit reads and parses a CommunityPoolSpendProposalWithDeposit from a file.
+func ParseCommunityPoolSpendProposalWithDeposit(cdc codec.JSONCodec, proposalFile string) (types.CommunityPoolSpendProposalWithDeposit, error) {
+	proposal := types.CommunityPoolSpendProposalWithDeposit{}
 
-// ParseCommunityPoolSpendProposalJSON reads and parses a CommunityPoolSpendProposalJSON from a file.
-func ParseCommunityPoolSpendProposalJSON(cdc *codec.Codec, proposalFile string) (CommunityPoolSpendProposalJSON, error) {
-	proposal := CommunityPoolSpendProposalJSON{}
-
-	contents, err := ioutil.ReadFile(proposalFile)
+	contents, err := os.ReadFile(proposalFile)
 	if err != nil {
 		return proposal, err
 	}
 
-	if err := cdc.UnmarshalJSON(contents, &proposal); err != nil {
+	if err = cdc.UnmarshalJSON(contents, &proposal); err != nil {
 		return proposal, err
 	}
 

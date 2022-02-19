@@ -5,115 +5,103 @@ import (
 
 	"github.com/stretchr/testify/require"
 	abci "github.com/tendermint/tendermint/abci/types"
+	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 
+	"github.com/cosmos/cosmos-sdk/simapp"
+	simappparams "github.com/cosmos/cosmos-sdk/simapp/params"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	"github.com/cosmos/cosmos-sdk/x/bank"
-	"github.com/cosmos/cosmos-sdk/x/bank/internal/keeper"
-	"github.com/cosmos/cosmos-sdk/x/bank/internal/types"
-	"github.com/cosmos/cosmos-sdk/x/mock"
-	"github.com/cosmos/cosmos-sdk/x/supply"
+	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/cosmos/cosmos-sdk/x/bank/testutil"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 )
 
-var moduleAccAddr = sdk.AccAddress([]byte("moduleAcc"))
-
-// initialize the mock application for this module
-func getMockApp(t *testing.T) *mock.App {
-	mapp, err := getBenchmarkMockApp()
-	supply.RegisterCodec(mapp.Cdc)
-	require.NoError(t, err)
-	return mapp
-}
-
-// overwrite the mock init chainer
-func getInitChainer(mapp *mock.App, keeper keeper.BaseKeeper) sdk.InitChainer {
-	return func(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
-		mapp.InitChainer(ctx, req)
-		bankGenesis := bank.DefaultGenesisState()
-		bank.InitGenesis(ctx, keeper, bankGenesis)
-
-		return abci.ResponseInitChain{}
-	}
-}
-
-// getBenchmarkMockApp initializes a mock application for this module, for purposes of benchmarking
-// Any long term API support commitments do not apply to this function.
-func getBenchmarkMockApp() (*mock.App, error) {
-	mapp := mock.NewApp()
-	types.RegisterCodec(mapp.Cdc)
-
-	blacklistedAddrs := make(map[string]bool)
-	blacklistedAddrs[moduleAccAddr.String()] = true
-
-	bankKeeper := keeper.NewBaseKeeper(
-		mapp.AccountKeeper,
-		mapp.ParamsKeeper.Subspace(types.DefaultParamspace),
-		types.DefaultCodespace,
-		blacklistedAddrs,
-	)
-	mapp.Router().AddRoute(types.RouterKey, bank.NewHandler(bankKeeper))
-	mapp.SetInitChainer(getInitChainer(mapp, bankKeeper))
-
-	err := mapp.CompleteSetup()
-	return mapp, err
-}
+var moduleAccAddr = authtypes.NewModuleAddress(stakingtypes.BondedPoolName)
 
 func BenchmarkOneBankSendTxPerBlock(b *testing.B) {
-	benchmarkApp, _ := getBenchmarkMockApp()
+	b.Skip("Skipping benchmark with buggy code reported at https://github.com/cosmos/cosmos-sdk/issues/10023")
 
+	b.ReportAllocs()
 	// Add an account at genesis
-	acc := &auth.BaseAccount{
-		Address: addr1,
-		// Some value conceivably higher than the benchmarks would ever go
-		Coins: sdk.Coins{sdk.NewInt64Coin("foocoin", 100000000000)},
+	acc := authtypes.BaseAccount{
+		Address: addr1.String(),
 	}
-	accs := []auth.Account{acc}
 
-	// Construct genesis state
-	mock.SetGenesis(benchmarkApp, accs)
+	// construct genesis state
+	genAccs := []types.GenesisAccount{&acc}
+	benchmarkApp := simapp.SetupWithGenesisAccounts(&testing.T{}, genAccs)
+	ctx := benchmarkApp.BaseApp.NewContext(false, tmproto.Header{})
+
+	// some value conceivably higher than the benchmarks would ever go
+	require.NoError(b, testutil.FundAccount(benchmarkApp.BankKeeper, ctx, addr1, sdk.NewCoins(sdk.NewInt64Coin("foocoin", 100000000000))))
+
+	benchmarkApp.Commit()
+	txGen := simappparams.MakeTestEncodingConfig().TxConfig
+
 	// Precompute all txs
-	txs := mock.GenSequenceOfTxs([]sdk.Msg{sendMsg1}, []uint64{0}, []uint64{uint64(0)}, b.N, priv1)
+	txs, err := simapp.GenSequenceOfTxs(txGen, []sdk.Msg{sendMsg1}, []uint64{0}, []uint64{uint64(0)}, b.N, priv1)
+	require.NoError(b, err)
 	b.ResetTimer()
+
+	height := int64(3)
+
 	// Run this with a profiler, so its easy to distinguish what time comes from
 	// Committing, and what time comes from Check/Deliver Tx.
 	for i := 0; i < b.N; i++ {
-		benchmarkApp.BeginBlock(abci.RequestBeginBlock{})
-		x := benchmarkApp.Check(txs[i])
-		if !x.IsOK() {
+		benchmarkApp.BeginBlock(abci.RequestBeginBlock{Header: tmproto.Header{Height: height}})
+		_, _, err := benchmarkApp.SimCheck(txGen.TxEncoder(), txs[i])
+		if err != nil {
 			panic("something is broken in checking transaction")
 		}
-		benchmarkApp.Deliver(txs[i])
-		benchmarkApp.EndBlock(abci.RequestEndBlock{})
+
+		_, _, err = benchmarkApp.SimDeliver(txGen.TxEncoder(), txs[i])
+		require.NoError(b, err)
+		benchmarkApp.EndBlock(abci.RequestEndBlock{Height: height})
 		benchmarkApp.Commit()
+		height++
 	}
 }
 
 func BenchmarkOneBankMultiSendTxPerBlock(b *testing.B) {
-	benchmarkApp, _ := getBenchmarkMockApp()
+	b.Skip("Skipping benchmark with buggy code reported at https://github.com/cosmos/cosmos-sdk/issues/10023")
 
+	b.ReportAllocs()
 	// Add an account at genesis
-	acc := &auth.BaseAccount{
-		Address: addr1,
-		// Some value conceivably higher than the benchmarks would ever go
-		Coins: sdk.Coins{sdk.NewInt64Coin("foocoin", 100000000000)},
+	acc := authtypes.BaseAccount{
+		Address: addr1.String(),
 	}
-	accs := []auth.Account{acc}
 
 	// Construct genesis state
-	mock.SetGenesis(benchmarkApp, accs)
+	genAccs := []authtypes.GenesisAccount{&acc}
+	benchmarkApp := simapp.SetupWithGenesisAccounts(&testing.T{}, genAccs)
+	ctx := benchmarkApp.BaseApp.NewContext(false, tmproto.Header{})
+
+	// some value conceivably higher than the benchmarks would ever go
+	require.NoError(b, testutil.FundAccount(benchmarkApp.BankKeeper, ctx, addr1, sdk.NewCoins(sdk.NewInt64Coin("foocoin", 100000000000))))
+
+	benchmarkApp.Commit()
+	txGen := simappparams.MakeTestEncodingConfig().TxConfig
+
 	// Precompute all txs
-	txs := mock.GenSequenceOfTxs([]sdk.Msg{multiSendMsg1}, []uint64{0}, []uint64{uint64(0)}, b.N, priv1)
+	txs, err := simapp.GenSequenceOfTxs(txGen, []sdk.Msg{multiSendMsg1}, []uint64{0}, []uint64{uint64(0)}, b.N, priv1)
+	require.NoError(b, err)
 	b.ResetTimer()
+
+	height := int64(3)
+
 	// Run this with a profiler, so its easy to distinguish what time comes from
 	// Committing, and what time comes from Check/Deliver Tx.
 	for i := 0; i < b.N; i++ {
-		benchmarkApp.BeginBlock(abci.RequestBeginBlock{})
-		x := benchmarkApp.Check(txs[i])
-		if !x.IsOK() {
+		benchmarkApp.BeginBlock(abci.RequestBeginBlock{Header: tmproto.Header{Height: height}})
+		_, _, err := benchmarkApp.SimCheck(txGen.TxEncoder(), txs[i])
+		if err != nil {
 			panic("something is broken in checking transaction")
 		}
-		benchmarkApp.Deliver(txs[i])
-		benchmarkApp.EndBlock(abci.RequestEndBlock{})
+
+		_, _, err = benchmarkApp.SimDeliver(txGen.TxEncoder(), txs[i])
+		require.NoError(b, err)
+		benchmarkApp.EndBlock(abci.RequestEndBlock{Height: height})
 		benchmarkApp.Commit()
+		height++
 	}
 }
